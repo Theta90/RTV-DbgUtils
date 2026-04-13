@@ -1,0 +1,10 @@
+{
+  "name": "hello-world-example",
+  "displayName": "HelloWorld",
+  "version": "0.1.0",
+  "type": "module",
+  "devDependencies": {
+    "@types/node": "^25.5.2",
+    "rtv-modbuilder": "github:Theta90/RTV-ModBuilder#main"
+  }
+}
