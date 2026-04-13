@@ -5,4 +5,8 @@
 .DS_Store
 Thumbs.db
 
+**/*.tmp
+**/*.TMP
+**/*.import
+
 node_modules

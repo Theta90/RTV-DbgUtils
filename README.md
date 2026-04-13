@@ -1,37 +1,17 @@
-## Setup
+# DbgUtils - Road to Vostok Debug Utilities
 
-Install the RTV-ModBuilder as a dev dependency via:
+A debugging utility mod that provides an in-game UI menu and logging tools
+to assist with mod development and runtime diagnostics.
 
-```sh
+## Overview
 
-npm i -D "github:Theta90/RTV-ModBuilder#main"
+DbgUtils is designed to enhance the modding experience by offering a convenient way to view logs and debug information directly within the game. It includes a custom logger that integrates with the UI, allowing mod developers to easily track events, errors, and other relevant data without needing to rely solely on external log files.
 
-```
+I made this due to the issue of Godot not flushing the log file until the game exits, which makes it difficult to see logs in real-time while testing mods. With DbgUtils, you can see your logs immediately in the in-game UI, making the development process smoother and more efficient.
 
-## How It Works
+## Features
 
-This script (index.js) serves as the build entry point for the mod. Running it (e.g., via F5
-or `node index.js`) will invoke the RTV-ModBuilder and produce the final mod output
-in the configured output directory.
-
-## Usage
-
-The index.js file must be tailored to each specific project.
-See [the RTV-ModBuilder documentation](https://github.com/Theta90/RTV-ModBuilder?tab=readme-ov-file#usage)
-for more information on how to configure the mod builder for your specific project.
-
-## Example Output Structure
-
-This example's HelloWorld.vmz has the following structure:
-
-```
-HelloWorld.vmz
-├── mod.txt
-├── mods
-│   └── HelloWorld
-│       └── Main.gd
-│       └── README.md
-│       └── Scripts
-│           └── Character.gd
-
-```
+- In-game debug UI menu overlay
+- Custom runtime logger with UI integration
+- Resizable debug panel
+- Monospaced font rendering for clean log output

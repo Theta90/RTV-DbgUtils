@@ -1,7 +1,7 @@
 {
-  "name": "hello-world-example",
-  "displayName": "HelloWorld",
-  "version": "0.1.0",
+  "name": "rtv-dbg-utils",
+  "displayName": "DbgUtils",
+  "version": "1.0.0",
   "type": "module",
   "devDependencies": {
     "@types/node": "^25.5.2",

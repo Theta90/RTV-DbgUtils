@@ -1,0 +1,251 @@
+[gd_scene format=3 uid="uid://bvwl54opy6eev"]
+
+[ext_resource type="Script" uid="uid://b80e4k36b2vk1" path="res://mods/DbgUtils/Logger/CustomLoggerUI.gd" id="1_fx2av"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_row7m"]
+content_margin_left = 2.0
+content_margin_top = 2.0
+content_margin_right = 2.0
+content_margin_bottom = 2.0
+bg_color = Color(0.1, 0.1, 0.1, 0.6)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+corner_radius_top_left = 2
+corner_radius_top_right = 2
+corner_radius_bottom_right = 2
+corner_radius_bottom_left = 2
+corner_detail = 5
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_fx2av"]
+content_margin_left = 0.0
+content_margin_top = 0.0
+content_margin_right = 0.0
+content_margin_bottom = 2.0
+bg_color = Color(0.1, 0.1, 0.1, 0.6)
+border_width_bottom = 2
+corner_detail = 5
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_b0rti"]
+content_margin_left = 4.0
+content_margin_top = 0.0
+content_margin_right = 0.0
+content_margin_bottom = 0.0
+bg_color = Color(0.1, 0.1, 0.1, 0.6)
+border_width_right = 2
+corner_detail = 5
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_nbf6o"]
+content_margin_left = 2.0
+content_margin_top = 2.0
+content_margin_right = 2.0
+content_margin_bottom = 2.0
+bg_color = Color(0.1, 0.1, 0.1, 0.6)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+corner_detail = 5
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_kgmo0"]
+content_margin_left = 4.0
+content_margin_top = 4.0
+content_margin_right = 4.0
+content_margin_bottom = 4.0
+bg_color = Color(0.1, 0.1, 0.1, 0.6)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_blend = true
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+corner_detail = 5
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_enl5g"]
+content_margin_left = 4.0
+content_margin_top = 4.0
+content_margin_right = 4.0
+content_margin_bottom = 4.0
+bg_color = Color(0.39620733, 0, 0.030609377, 0.6)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+corner_detail = 5
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_y07v7"]
+content_margin_left = 2.0
+content_margin_top = 2.0
+content_margin_right = 2.0
+content_margin_bottom = 2.0
+bg_color = Color(0.38928655, 0.38928664, 0.38928658, 0.6431373)
+corner_detail = 5
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_c73ru"]
+content_margin_left = 10.0
+content_margin_top = 0.0
+content_margin_right = 0.0
+content_margin_bottom = 10.0
+bg_color = Color(0.06053035, 0.06053035, 0.060530342, 0.6)
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+corner_detail = 5
+
+[node name="CustomLoggerUI" type="Control" unique_id=1524830727 node_paths=PackedStringArray("DisplayTextBox", "WindowCanvas", "WindowFrame", "WindowContent", "HeaderBar", "ResizeHandle")]
+layout_mode = 3
+anchors_preset = 0
+offset_right = 128.0
+offset_bottom = 96.0
+script = ExtResource("1_fx2av")
+DisplayTextBox = NodePath("WindowCanvas/WindowFrame/VBoxContainer/WindowContent/VBoxContainer/DisplayPanel/DisplayTextBox")
+WindowCanvas = NodePath("WindowCanvas")
+WindowFrame = NodePath("WindowCanvas/WindowFrame")
+WindowContent = NodePath("WindowCanvas/WindowFrame/VBoxContainer/WindowContent")
+HeaderBar = NodePath("WindowCanvas/WindowFrame/VBoxContainer/WindowHeader/HBoxContainer/HeaderBar")
+ResizeHandle = NodePath("WindowCanvas/WindowFrame/Control/ResizeHandle")
+
+[node name="WindowCanvas" type="CanvasLayer" parent="." unique_id=2085765096]
+
+[node name="WindowFrame" type="PanelContainer" parent="WindowCanvas" unique_id=1600303561]
+offset_right = 256.0
+offset_bottom = 128.0
+theme_override_styles/panel = SubResource("StyleBoxFlat_row7m")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="WindowCanvas/WindowFrame" unique_id=857631687]
+layout_mode = 2
+theme_override_constants/separation = 0
+
+[node name="WindowHeader" type="PanelContainer" parent="WindowCanvas/WindowFrame/VBoxContainer" unique_id=305258263]
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_fx2av")
+
+[node name="HBoxContainer" type="HBoxContainer" parent="WindowCanvas/WindowFrame/VBoxContainer/WindowHeader" unique_id=116118361]
+layout_mode = 2
+theme_override_constants/separation = 0
+
+[node name="HeaderBar" type="PanelContainer" parent="WindowCanvas/WindowFrame/VBoxContainer/WindowHeader/HBoxContainer" unique_id=1486422979]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_b0rti")
+
+[node name="HeaderLabel" type="Label" parent="WindowCanvas/WindowFrame/VBoxContainer/WindowHeader/HBoxContainer/HeaderBar" unique_id=1769127633]
+custom_minimum_size = Vector2(80, 0)
+layout_mode = 2
+mouse_filter = 1
+theme_override_font_sizes/font_size = 12
+text = "VVM-Console"
+metadata/_edit_lock_ = true
+
+[node name="HeaderButtons" type="PanelContainer" parent="WindowCanvas/WindowFrame/VBoxContainer/WindowHeader/HBoxContainer" unique_id=751406604]
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_nbf6o")
+
+[node name="HBoxContainer" type="HBoxContainer" parent="WindowCanvas/WindowFrame/VBoxContainer/WindowHeader/HBoxContainer/HeaderButtons" unique_id=506419129]
+layout_mode = 2
+size_flags_stretch_ratio = 0.16
+theme_override_constants/separation = 2
+alignment = 1
+
+[node name="MinimizeWindow" type="Button" parent="WindowCanvas/WindowFrame/VBoxContainer/WindowHeader/HBoxContainer/HeaderButtons/HBoxContainer" unique_id=2128221503]
+custom_minimum_size = Vector2(16, 0)
+layout_mode = 2
+size_flags_horizontal = 8
+theme_override_font_sizes/font_size = 8
+theme_override_styles/normal = SubResource("StyleBoxFlat_kgmo0")
+text = "-"
+
+[node name="CloseWindow" type="Button" parent="WindowCanvas/WindowFrame/VBoxContainer/WindowHeader/HBoxContainer/HeaderButtons/HBoxContainer" unique_id=1963446898]
+custom_minimum_size = Vector2(16, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 8
+theme_override_styles/normal = SubResource("StyleBoxFlat_kgmo0")
+theme_override_styles/hover = SubResource("StyleBoxFlat_enl5g")
+text = "X"
+
+[node name="WindowContent" type="PanelContainer" parent="WindowCanvas/WindowFrame/VBoxContainer" unique_id=411585091]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_y07v7")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="WindowCanvas/WindowFrame/VBoxContainer/WindowContent" unique_id=1231105345]
+layout_mode = 2
+
+[node name="DisplayPanel" type="PanelContainer" parent="WindowCanvas/WindowFrame/VBoxContainer/WindowContent/VBoxContainer" unique_id=1269421015]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_c73ru")
+
+[node name="DisplayTextBox" type="RichTextLabel" parent="WindowCanvas/WindowFrame/VBoxContainer/WindowContent/VBoxContainer/DisplayPanel" unique_id=424797420]
+layout_mode = 2
+focus_mode = 2
+theme_override_font_sizes/normal_font_size = 14
+theme_override_font_sizes/bold_font_size = 14
+theme_override_font_sizes/bold_italics_font_size = 14
+theme_override_font_sizes/italics_font_size = 14
+theme_override_font_sizes/mono_font_size = 14
+bbcode_enabled = true
+scroll_following = true
+autowrap_trim_flags = 64
+threaded = true
+selection_enabled = true
+drag_and_drop_selection_enabled = false
+
+[node name="Actions" type="HBoxContainer" parent="WindowCanvas/WindowFrame/VBoxContainer/WindowContent/VBoxContainer" unique_id=951372408]
+layout_mode = 2
+theme_override_constants/separation = 4
+alignment = 2
+
+[node name="ClearText" type="Button" parent="WindowCanvas/WindowFrame/VBoxContainer/WindowContent/VBoxContainer/Actions" unique_id=1610140029]
+layout_mode = 2
+mouse_default_cursor_shape = 2
+theme_override_font_sizes/font_size = 10
+theme_override_styles/normal = SubResource("StyleBoxFlat_kgmo0")
+text = "Clear"
+
+[node name="OpenLogs" type="Button" parent="WindowCanvas/WindowFrame/VBoxContainer/WindowContent/VBoxContainer/Actions" unique_id=1224437112]
+layout_mode = 2
+mouse_default_cursor_shape = 2
+theme_override_font_sizes/font_size = 10
+theme_override_styles/normal = SubResource("StyleBoxFlat_kgmo0")
+text = "Open Logs"
+
+[node name="TextureRect" type="TextureRect" parent="WindowCanvas/WindowFrame/VBoxContainer/WindowContent/VBoxContainer/Actions" unique_id=1716184665]
+custom_minimum_size = Vector2(8, 0)
+layout_mode = 2
+
+[node name="Control" type="Control" parent="WindowCanvas/WindowFrame" unique_id=1480988456]
+layout_mode = 2
+mouse_filter = 2
+metadata/_edit_lock_ = true
+
+[node name="ResizeHandle" type="TextureRect" parent="WindowCanvas/WindowFrame/Control" unique_id=772591563]
+self_modulate = Color(1, 1, 1, 0.5058824)
+texture_filter = 1
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -10.0
+offset_top = -10.0
+offset_right = 2.0
+offset_bottom = 2.0
+grow_horizontal = 0
+grow_vertical = 0
+mouse_default_cursor_shape = 12
+expand_mode = 2
+
+[connection signal="tree_entered" from="." to="." method="_on_tree_entered"]
+[connection signal="tree_exiting" from="." to="." method="_on_tree_exiting"]
+[connection signal="resized" from="WindowCanvas/WindowFrame" to="." method="_on_window_frame_resized"]
+[connection signal="gui_input" from="WindowCanvas/WindowFrame/VBoxContainer/WindowHeader/HBoxContainer/HeaderBar" to="." method="_on_header_bar_gui_input"]
+[connection signal="pressed" from="WindowCanvas/WindowFrame/VBoxContainer/WindowHeader/HBoxContainer/HeaderButtons/HBoxContainer/MinimizeWindow" to="." method="_on_minimize_window_pressed"]
+[connection signal="pressed" from="WindowCanvas/WindowFrame/VBoxContainer/WindowHeader/HBoxContainer/HeaderButtons/HBoxContainer/CloseWindow" to="." method="_on_close_window_pressed"]
+[connection signal="pressed" from="WindowCanvas/WindowFrame/VBoxContainer/WindowContent/VBoxContainer/Actions/ClearText" to="." method="_on_clear_text_pressed"]
+[connection signal="pressed" from="WindowCanvas/WindowFrame/VBoxContainer/WindowContent/VBoxContainer/Actions/OpenLogs" to="." method="_on_open_logs_pressed"]
+[connection signal="gui_input" from="WindowCanvas/WindowFrame/Control/ResizeHandle" to="." method="_on_resize_handle_gui_input"]
