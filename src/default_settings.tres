@@ -1,0 +1,7 @@
+[gd_resource type="Resource" script_class="DbgSettings" format=3 uid="uid://d2h7ssqw50l3x"]
+
+[ext_resource type="Script" uid="uid://bustm6q00wmx3" path="res://mods/DbgUtils/DbgSettings.gd" id="1_8xque"]
+
+[resource]
+script = ExtResource("1_8xque")
+metadata/_custom_type_script = "uid://bustm6q00wmx3"

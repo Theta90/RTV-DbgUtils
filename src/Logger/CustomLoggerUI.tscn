@@ -1,6 +1,10 @@
 [gd_scene format=3 uid="uid://bvwl54opy6eev"]
 
 [ext_resource type="Script" uid="uid://b80e4k36b2vk1" path="res://mods/DbgUtils/Logger/CustomLoggerUI.gd" id="1_fx2av"]
+[ext_resource type="FontFile" uid="uid://oosqwwtb0ux5" path="res://mods/DbgUtils/Assets/RobotoMono-Regular.ttf.fontdata" id="2_hdfic"]
+[ext_resource type="FontFile" uid="uid://dpavdphej0rf7" path="res://mods/DbgUtils/Assets/RobotoMono-Bold.ttf.fontdata" id="3_nv726"]
+[ext_resource type="FontFile" path="res://mods/DbgUtils/Assets/RobotoMono-BoldItalic.ttf.fontdata" id="4_sx8v4"]
+[ext_resource type="FontFile" uid="uid://ddhphurfgkj8h" path="res://mods/DbgUtils/Assets/RobotoMono-Italic.ttf.fontdata" id="5_a7ja8"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_row7m"]
 content_margin_left = 2.0
@@ -98,8 +102,8 @@ corner_detail = 5
 [node name="CustomLoggerUI" type="Control" unique_id=1524830727 node_paths=PackedStringArray("DisplayTextBox", "WindowCanvas", "WindowFrame", "WindowContent", "HeaderBar", "ResizeHandle")]
 layout_mode = 3
 anchors_preset = 0
-offset_right = 128.0
-offset_bottom = 96.0
+offset_right = 400.0
+offset_bottom = 200.0
 script = ExtResource("1_fx2av")
 DisplayTextBox = NodePath("WindowCanvas/WindowFrame/VBoxContainer/WindowContent/VBoxContainer/DisplayPanel/DisplayTextBox")
 WindowCanvas = NodePath("WindowCanvas")
@@ -111,8 +115,8 @@ ResizeHandle = NodePath("WindowCanvas/WindowFrame/Control/ResizeHandle")
 [node name="WindowCanvas" type="CanvasLayer" parent="." unique_id=2085765096]
 
 [node name="WindowFrame" type="PanelContainer" parent="WindowCanvas" unique_id=1600303561]
-offset_right = 256.0
-offset_bottom = 128.0
+offset_right = 400.0
+offset_bottom = 200.0
 theme_override_styles/panel = SubResource("StyleBoxFlat_row7m")
 
 [node name="VBoxContainer" type="VBoxContainer" parent="WindowCanvas/WindowFrame" unique_id=857631687]
@@ -137,7 +141,7 @@ custom_minimum_size = Vector2(80, 0)
 layout_mode = 2
 mouse_filter = 1
 theme_override_font_sizes/font_size = 12
-text = "VVM-Console"
+text = "DbgUtils Console"
 metadata/_edit_lock_ = true
 
 [node name="HeaderButtons" type="PanelContainer" parent="WindowCanvas/WindowFrame/VBoxContainer/WindowHeader/HBoxContainer" unique_id=751406604]
@@ -182,15 +186,20 @@ theme_override_styles/panel = SubResource("StyleBoxFlat_c73ru")
 [node name="DisplayTextBox" type="RichTextLabel" parent="WindowCanvas/WindowFrame/VBoxContainer/WindowContent/VBoxContainer/DisplayPanel" unique_id=424797420]
 layout_mode = 2
 focus_mode = 2
-theme_override_font_sizes/normal_font_size = 14
-theme_override_font_sizes/bold_font_size = 14
-theme_override_font_sizes/bold_italics_font_size = 14
-theme_override_font_sizes/italics_font_size = 14
-theme_override_font_sizes/mono_font_size = 14
+theme_override_fonts/normal_font = ExtResource("2_hdfic")
+theme_override_fonts/bold_font = ExtResource("3_nv726")
+theme_override_fonts/bold_italics_font = ExtResource("4_sx8v4")
+theme_override_fonts/italics_font = ExtResource("5_a7ja8")
+theme_override_fonts/mono_font = ExtResource("2_hdfic")
+theme_override_font_sizes/normal_font_size = 10
+theme_override_font_sizes/bold_font_size = 10
+theme_override_font_sizes/bold_italics_font_size = 10
+theme_override_font_sizes/italics_font_size = 10
+theme_override_font_sizes/mono_font_size = 10
 bbcode_enabled = true
+text = "abc123"
 scroll_following = true
 autowrap_trim_flags = 64
-threaded = true
 selection_enabled = true
 drag_and_drop_selection_enabled = false
 
@@ -225,6 +234,7 @@ metadata/_edit_lock_ = true
 [node name="ResizeHandle" type="TextureRect" parent="WindowCanvas/WindowFrame/Control" unique_id=772591563]
 self_modulate = Color(1, 1, 1, 0.5058824)
 texture_filter = 1
+custom_minimum_size = Vector2(16, 16)
 layout_mode = 1
 anchors_preset = 3
 anchor_left = 1.0

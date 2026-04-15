@@ -13,13 +13,13 @@ await modBuilder({
   },
   globs: [
     {
-      pattern: "**/*", // any files in the cwd
-      options: { cwd: "src", ignore: ["*.tmp", "*.TMP", "**/*.import"] }, // include all files in src except do_not_include.txt
+      pattern: "**/*",
+      options: { cwd: "src", ignore: ["*.tmp", "*.TMP"] },
     },
   ],
   modTxtOptions: {
     autoload: {
-      [`DbgUtils_LoggerUI`]: "Logger/CustomLoggerUI.tscn",
+      [`!DbgUtils`]: "DbgUtils.gd",
     },
     author: "Theta",
     priority: -999,

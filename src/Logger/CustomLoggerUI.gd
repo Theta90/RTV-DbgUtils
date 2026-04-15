@@ -7,90 +7,127 @@ extends Control
 @export var HeaderBar: PanelContainer
 @export var ResizeHandle: TextureRect
 
-enum WindowSide {
-	NONE = 0,
-	TOP = 1 << 1,
-	RIGHT = 1 << 2,
-	BOTTOM = 1 << 3,
-	LEFT = 1 << 4,
-}
+const DbgUtils := preload("res://mods/DbgUtils/DbgUtils.gd")
 
-const DEFAULT_WINDOW_SIZE := Vector2(256, 128)
-const HIDDEN_WINDOW_SIZE := Vector2(128, 30)
+const MENU_RECT := Rect2(Vector2(1300, 600), Vector2(500, 300))
+const DEFAULT_RECT := Rect2(Vector2(0, 0), Vector2(400, 200))
+const MINIMIZED_RECT := Rect2(Vector2(0, 0), Vector2(128, 30))
 
-var disengageMouseButtonIsPressed: bool = false
-var previousMouseMode: Variant = null # Input.MouseMode
+var _preMinimizeRect := Rect2()
+var _preMoveRect := Rect2()
 
-var preMinimizeRect: Rect2 = Rect2()
-var preMoveRect: Rect2 = Rect2()
+var _isExpanded: bool = false
+var _isVisible: bool = false
 
-var mouseIsDraggingWindow: bool = false
-var mouseIsResizingWindow: bool = false
-var mouseIsInsideFrame: bool = false
+var _disengageMouseButtonIsPressed: bool = false
+var _previousMouseMode: Variant = null # Input.MouseMode
 
-var mouseDownPosition: Vector2 = Vector2.ZERO # Where the mouse was when it clicked the HeaderBar
-var mouseLeftButtonPressed: bool = false
+var _mouseIsDraggingWindow: bool = false
+var _mouseIsResizingWindow: bool = false
 
-var logger # CustomLogger
-
-func _init() -> void:
-	logger = load("res://mods/DbgUtils/Logger/CustomLogger.gd").new().GetNewLogger(self )
+var _mouseDownPosition: Vector2 = Vector2.ZERO # Where the mouse was when it clicked the HeaderBar
+var _mouseLeftButtonPressed: bool = false
 
 func _ready() -> void:
-	preMinimizeRect = WindowFrame.get_rect()
+	var fonts = {
+		"normal_font": load("res://mods/DbgUtils/Assets/RobotoMono-Regular.ttf.fontdata"),
+		"bold_font": load("res://mods/DbgUtils/Assets/RobotoMono-Bold.ttf.fontdata"),
+		"bold_italic_font": load("res://mods/DbgUtils/Assets/RobotoMono-BoldItalic.ttf.fontdata"),
+		"italic_font": load("res://mods/DbgUtils/Assets/RobotoMono-Italic.ttf.fontdata"),
+	}
+	
+	fonts["mono_font"] = fonts["normal_font"]
 
-	#var fonts = {
-	#	"regular": load("res://mods/DbgUtils/Assets/RobotoMono-Regular.ttf"),
-	#	"bold": load("res://mods/DbgUtils/Assets/RobotoMono-Bold.ttf"),
-	#	"italic": load("res://mods/DbgUtils/Assets/RobotoMono-Italic.ttf"),
-	#	"bold_italic": load("res://mods/DbgUtils/Assets/RobotoMono-BoldItalic.ttf"),
-	#}
+	for font in fonts.keys():
+		DisplayTextBox.add_theme_font_override(font, fonts[font])
 
-	#DisplayTextBox.add_theme_font_override("normal_font", fonts["regular"])
-	#DisplayTextBox.add_theme_font_override("bold_font", fonts["bold"])
-	#DisplayTextBox.add_theme_font_override("italic_font", fonts["italic"])
-	#DisplayTextBox.add_theme_font_override("bold_italic_font", fonts["bold_italic"])
-	#var texture = FileAccess.open("res://mods/DbgUtils/Assets/resize_handle.png", FileAccess.READ)
-	#print(texture)
+	var path = "res://mods/DbgUtils/Assets/resize_handle.png"
+	var file = FileAccess.open(path, FileAccess.READ)
+	var imgBuffer = file.get_buffer(file.get_length())
+	var img = Image.new()
+	
+	img.load_png_from_buffer(imgBuffer)
+	ResizeHandle.texture = ImageTexture.create_from_image(img)
+	file.close()
+
+	reset_window(true, true, MENU_RECT)
+
+	DisplayTextBox.clear()
+	_preMinimizeRect = WindowFrame.get_rect()
 
 func _physics_process(_delta: float) -> void:
-	if (mouseIsDraggingWindow):
+	if (_mouseIsDraggingWindow):
 		_HandleMove()
 	
-	if (mouseIsResizingWindow):
+	if (_mouseIsResizingWindow):
 		_HandleResize()
 
-func _HandleMove():
-	if (WindowContent.visible == false): # reveal if moved while minimized
-		WindowContent.visible = true
-		WindowFrame.size = preMinimizeRect.size
+func minimize_window():
+	change_expanded_state(false)
 
-	var initialMousePos = mouseDownPosition
+func expand_window():
+	change_expanded_state(true)
+
+func change_expanded_state(isExpanded: bool):
+	_isExpanded = isExpanded
+	WindowContent.visible = isExpanded
+	ResizeHandle.visible = isExpanded
+
+	if (!isExpanded):
+		_preMinimizeRect = WindowFrame.get_rect()
+		_ApplyRectToWindow(MINIMIZED_RECT)
+	else:
+		_ApplyRectToWindow(_preMinimizeRect)
+
+func hide_window():
+	change_visibility(false)
+
+func reveal_window():
+	change_visibility(true)
+
+func change_visibility(isVisible: bool):
+	_isVisible = isVisible
+	WindowCanvas.visible = isVisible
+	WindowContent.visible = isVisible
+	ResizeHandle.visible = isVisible
+	
+	WindowFrame.position = DEFAULT_RECT.position
+
+	if (!isVisible):
+		_on_mouse_btn_released()
+
+func reset_window(isExpanded: bool, isVisible: bool, newRect: Variant = null):
+	change_expanded_state(isExpanded)
+	change_visibility(isVisible)
+	if newRect is Rect2:
+		_ApplyRectToWindow(newRect)
+
+func clear_window():
+	DisplayTextBox.clear()
+
+func _on_mouse_btn_released():
+	_mouseIsDraggingWindow = false
+	_mouseIsResizingWindow = false
+	_mouseLeftButtonPressed = false
+
+func _HandleMove():
+	if (!_isExpanded): # reveal if moved while minimized
+		expand_window()
+
+	var initialMousePos = _mouseDownPosition
 	var currentMousePos = get_global_mouse_position()
-	var newWindowPos = preMoveRect.position + (currentMousePos - initialMousePos)
+	var newWindowPos = _preMoveRect.position + (currentMousePos - initialMousePos)
 
 	WindowFrame.position = newWindowPos
 
 func _HandleResize():
-	if (WindowContent.visible == false):
+	if (!_isExpanded): # prevent resizing while minimized
 		return
 
 	var mousePos = get_global_mouse_position()
-	var initialWindowRect = preMoveRect
+	var initialWindowRect = _preMoveRect
 	var newSize = mousePos - initialWindowRect.position
 	_ApplyToWindow(newSize, initialWindowRect.position)
-
-func _ResetWindow(isVisible: bool = true):
-	WindowFrame.size = DEFAULT_WINDOW_SIZE
-	WindowFrame.position = Vector2.ZERO
-	WindowCanvas.visible = isVisible
-	if (!isVisible):
-		if (mouseIsDraggingWindow or mouseIsResizingWindow):
-			mouseIsDraggingWindow = false
-			mouseIsResizingWindow = false
-		if (disengageMouseButtonIsPressed):
-			disengageMouseButtonIsPressed = false
-			previousMouseMode = null
 
 func _ApplyToWindow(newSize: Vector2, newPosition: Vector2):
 	WindowFrame.size = newSize
@@ -99,52 +136,50 @@ func _ApplyToWindow(newSize: Vector2, newPosition: Vector2):
 func _ApplyRectToWindow(newRect: Rect2):
 	_ApplyToWindow(newRect.size, newRect.position)
 
+func _AppendText(newText: String):
+	if (!DisplayTextBox):
+		return
+
+	DisplayTextBox.append_text(newText)
+
 func _OnDisengageMouseKeyPressed(isPressed: bool):
 	if (isPressed):
-		if (disengageMouseButtonIsPressed):
+		if (_disengageMouseButtonIsPressed):
 			return # prevent holding
-		disengageMouseButtonIsPressed = true
+		_disengageMouseButtonIsPressed = true
 	else:
-		if (disengageMouseButtonIsPressed):
-			disengageMouseButtonIsPressed = false
+		if (_disengageMouseButtonIsPressed):
+			_disengageMouseButtonIsPressed = false
 			return # prevent holding
 			
 	var oldMode = Input.get_mouse_mode()
 	var newMode: Input.MouseMode
 
-	if (previousMouseMode != null):
-		newMode = previousMouseMode
-		previousMouseMode = null
+	if (_previousMouseMode != null):
+		newMode = _previousMouseMode
+		_previousMouseMode = null
 	else:
 		if (oldMode != Input.MOUSE_MODE_CONFINED and oldMode != Input.MOUSE_MODE_VISIBLE):
-			previousMouseMode = oldMode
+			_previousMouseMode = oldMode
 			newMode = Input.MOUSE_MODE_CONFINED
 			
 	Input.set_mouse_mode(newMode)
 
 	if (newMode != Input.MOUSE_MODE_VISIBLE and newMode != Input.MOUSE_MODE_CONFINED): # if no longer visible
-		if (mouseIsDraggingWindow or mouseIsResizingWindow):
-			mouseIsDraggingWindow = false
-			mouseIsResizingWindow = false
+		if (_mouseIsDraggingWindow or _mouseIsResizingWindow):
+			_on_mouse_btn_released()
 
 func _on_window_frame_resized():
 	size = WindowFrame.size
 
 func _on_minimize_window_pressed() -> void:
-	var isVisible = WindowContent.visible
-	if (isVisible):
-		preMinimizeRect = WindowFrame.get_rect()
-		WindowContent.visible = false;
-		_ApplyToWindow(HIDDEN_WINDOW_SIZE, Vector2.ZERO)
-	else:
-		WindowContent.visible = true
-		_ApplyToWindow(preMinimizeRect.size, preMinimizeRect.position)
+	change_expanded_state(!_isExpanded)
 
 func _on_close_window_pressed() -> void:
-	_ResetWindow(false) # TODO: make a way to "reset & reappear"
+	reset_window(true, false, DEFAULT_RECT)
 
 func _on_clear_text_pressed() -> void:
-	DisplayTextBox.clear()
+	clear_window()
 
 func _on_open_logs_pressed() -> void:
 	OS.shell_open(ProjectSettings.globalize_path(String(ProjectSettings.get_setting_with_override(&"debug/file_logging/log_path")).get_base_dir()))
@@ -156,70 +191,72 @@ func _on_tree_exiting() -> void:
 		curParent.remove_child.call_deferred(self )
 		get_node_or_null("/root").add_child.call_deferred(self )
 
-	disengageMouseButtonIsPressed = false
-	previousMouseMode = null
+	_disengageMouseButtonIsPressed = false
+	_previousMouseMode = null
+
+	_on_mouse_btn_released()
 
 func _on_tree_entered() -> void:
 	move_to_front.call_deferred()
-	disengageMouseButtonIsPressed = false
-	previousMouseMode = null
+	_disengageMouseButtonIsPressed = false
+	_previousMouseMode = null
 
 func _on_header_bar_gui_input(event: InputEvent) -> void:
 	if (event is InputEventMouseButton):
 		if (event.button_index == MouseButton.MOUSE_BUTTON_LEFT):
-			if (event.is_pressed() and !mouseLeftButtonPressed):
-				mouseDownPosition = get_global_mouse_position()
-				preMoveRect = WindowFrame.get_rect()
-				mouseIsDraggingWindow = true
-				mouseLeftButtonPressed = true
-			else:
-				mouseIsDraggingWindow = false
-				mouseLeftButtonPressed = false
+			if (event.is_pressed() and !_mouseLeftButtonPressed):
+				_mouseDownPosition = get_global_mouse_position()
+				_preMoveRect = WindowFrame.get_rect()
+				_mouseIsDraggingWindow = true
+				_mouseLeftButtonPressed = true
+			elif (not event.is_pressed()):
+				_on_mouse_btn_released()
 
 func _on_resize_handle_gui_input(event: InputEvent) -> void:
 	if (event is InputEventMouseButton):
 		if (event.button_index == MouseButton.MOUSE_BUTTON_LEFT):
 			if (event.is_pressed()):
-				mouseDownPosition = get_global_mouse_position()
-				preMoveRect = WindowFrame.get_rect()
-				mouseIsResizingWindow = true
+				_mouseDownPosition = get_global_mouse_position()
+				_preMoveRect = WindowFrame.get_rect()
+				_mouseIsResizingWindow = true
 			else:
-				mouseIsResizingWindow = false
-				mouseLeftButtonPressed = false
+				_on_mouse_btn_released()
 
 func _unhandled_input(event: InputEvent) -> void:
 	if (event is InputEventMouseButton):
 		if (event.button_index == MouseButton.MOUSE_BUTTON_LEFT):
 			if (!event.is_pressed()): # only update on release
-				mouseLeftButtonPressed = false
-				mouseIsDraggingWindow = false
-				mouseIsResizingWindow = false
+				_on_mouse_btn_released()
 		return
 
 	if (event is InputEventKey):
 		if (event.keycode == KEY_QUOTELEFT):
 			if (event.is_pressed()):
-				_ResetWindow(!WindowCanvas.visible)
+				reset_window(_isExpanded, !_isVisible, DEFAULT_RECT)
+			return
 		
 		if (event.keycode == KEY_PERIOD):
 			if (event.is_pressed()):
-				if (disengageMouseButtonIsPressed):
+				if (_disengageMouseButtonIsPressed):
 					return # prevent holding
-				disengageMouseButtonIsPressed = true
+				_disengageMouseButtonIsPressed = true
 			else:
-				if (disengageMouseButtonIsPressed):
-					disengageMouseButtonIsPressed = false
+				if (_disengageMouseButtonIsPressed):
+					_disengageMouseButtonIsPressed = false
 					return # prevent holding
 
 			var oldMode = Input.get_mouse_mode()
 			var newMode: Input.MouseMode
 
-			if (previousMouseMode != null):
-				newMode = previousMouseMode
-				previousMouseMode = null
+			if (_previousMouseMode != null):
+				newMode = _previousMouseMode
+				_previousMouseMode = null
 			else:
-				if (oldMode != Input.MOUSE_MODE_CONFINED and oldMode != Input.MOUSE_MODE_VISIBLE):
-					previousMouseMode = oldMode
+				if (oldMode != Input.MOUSE_MODE_VISIBLE and oldMode != Input.MOUSE_MODE_CONFINED):
+					_previousMouseMode = oldMode
 					newMode = Input.MOUSE_MODE_CONFINED
 
 			Input.set_mouse_mode(newMode)
+
+			if (newMode != Input.MOUSE_MODE_VISIBLE and newMode != Input.MOUSE_MODE_CONFINED): # if no longer visible
+				_on_mouse_btn_released()

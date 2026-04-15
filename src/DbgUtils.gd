@@ -1,172 +1,141 @@
-extends Object
-class_name DbgUtils
+extends Node
 
-enum LogLevel {
-	DEBUG = 0,
-	INFO = 1,
-	WARNING = 2,
-	ERROR = 3,
-}
+const CustomLoggerUI := preload("res://mods/DbgUtils/Logger/CustomLoggerUI.tscn")
+const DbgSettings := preload("res://mods/DbgUtils/DbgSettings.gd")
+const Dbg := preload("res://mods/DbgUtils/Dbg.gd")
 
-var _modId: String
-var _scriptPath: String
+var dbg := Dbg.new("DbgUtils", self , null)
 
-var _settings = {
-	# Minimum log level to output. Messages with a lower level will be ignored.
-	"level" = LogLevel.DEBUG,
+var _customLoggerUI := CustomLoggerUI.instantiate()
+var _logger: CustomLogger
+var _dbgInstances: Dictionary[String, Dbg] = {}
 
-	# Include the log level in the message (e.g. [DEBUG], [INFO], etc.)
-	"includeLevel" = true,
+func _ready() -> void:
+	_logger = CustomLogger.new(self )
+	dbg = Dbg.new("DbgUtils", self , null)
+	_dbgInstances["DbgUtils"] = dbg
 
-	# Convert the timestamp to UTC before formatting it. If false, local time will be used.
-	"useUTC" = false,
-
-	# Include the time for when the log message was generated (e.g. [12:34:56])
-	"includeTime" = true,
-
-	# Include the date for when the log message was generated (e.g. [2024-01-01])
-	"includeDate" = false,
-
-	# Include the mod ID in the log message (e.g. [MyMod])
-	"includeModId" = true,
-
-	# Include the file source for the current stack frame
-	"includeFileSource" = true,
-
-	# Include the line number for the current stack frame.
-	# Note that only debug builds will have line number information available, 
-	#	so this will be ignored in release builds.
-	"includeLine" = true,
-
-	# The maximum stack depth to include in the log message. 0 for unlimited.
-	"maxDepth" = 0,
-
-	# Colors for each log level
-	"colors" = {
-		LogLevel.DEBUG: Color.WHITE,
-		LogLevel.INFO: Color.AQUA,
-		LogLevel.WARNING: Color.YELLOW,
-		LogLevel.ERROR: Color.RED,
-	},
-}
-
-var _printMethods = {
-	LogLevel.DEBUG: print,
-	LogLevel.INFO: print,
-	LogLevel.WARNING: push_warning,
-	LogLevel.ERROR: push_error,
-}
-
-func _init(modId: String = "", modEntry: Object = null, settings: Dictionary = {}) -> void:
-	if (modId == "" and modEntry == null):
-		return
-
-	_modId = modId
-
-	if (modEntry != null):
-		var script: Script = modEntry.get_script()
-		if (script != null):
-			_scriptPath = script.resource_path
-
-	if (modEntry == null or _scriptPath == null or _scriptPath == ""):
-		_scriptPath = modId
-
-	apply_settings(settings)
-
-func apply_settings(newSettings: Dictionary) -> void:
-	for key in newSettings.keys():
-		if (key in _settings):
-			_settings[key] = newSettings[key]
-
-func log(
-	msg: String,
-	stack = get_stack(),
-	level: LogLevel = LogLevel.DEBUG
-) -> void:
-	_send_message(msg, stack, level)
-
-func debug(msg: String, stack = get_stack()) -> void:
-	_send_message(msg, stack, LogLevel.DEBUG)
-
-func info(msg: String, stack = get_stack()) -> void:
-	_send_message(msg, stack, LogLevel.INFO)
-
-func warning(msg: String, stack = get_stack()) -> void:
-	_send_message(msg, stack, LogLevel.WARNING)
-
-func error(msg: String, stack = get_stack()) -> void:
-	_send_message(msg, stack, LogLevel.ERROR)
-
-func _send_message(
-	msg: String,
-	stack: Array[Dictionary],
-	level: LogLevel
-) -> void:
-	if (!_is_at_least_level(level)):
-		return
-
-	print("_send_message called with msg: %s, level: %s" % [msg, _get_level_name(level)])
+	add_child(_customLoggerUI)
 	
-	var timeStr = "%s" % [Time.get_date_string_from_system(_settings.useUTC)] if (_settings.includeDate) else ""
-	var dateStr = "%s" % [Time.get_time_string_from_system(_settings.useUTC)] if (_settings.includeTime) else ""
-	var whenStr = "%s" % [dateStr] if (dateStr != "") else timeStr
-	whenStr += "-%s" % [timeStr] if (timeStr != "" and whenStr != "") else timeStr if (timeStr != "") else ""
+	dbg.debug("DbgUtils initialized, [wave][rainbow]have a nice day![/rainbow][/wave]")
 
-	var levelName = _get_level_name(level) if (_settings.includeLevel) else ""
-	var modIdStr = _modId if (_settings.includeModId) else ""
-	var stackStr: String = ""
-	
-	if (_settings.includeFileSource or _settings.includeLine):
-		if (stack.size() > 0):
-			stackStr = _format_stack(stack)
+## Attach a new Dbg instance for the given modId and modEntry.
+## Returns the new Dbg instance, or null if an instance with the modId already exists.
+func attach(modId: String, modEntry: Object, dbgSettings: DbgSettings = null) -> Variant:
+	if (modId in _dbgInstances):
+		dbg.error("A DbgInstance with the modId '%s' is already attached -- attach() failed." % modId)
+		return null
 
-	var formattedmsg = "[color=%s]%s%s%s%s:[/color] %s" % [
-		_get_color_for_level(level),
-		"[%s]" % levelName if (levelName != "") else "",
-		"[%s]" % whenStr if (whenStr != "") else "",
-		"[%s]" % modIdStr if (modIdStr != "") else "",
-		"[%s]" % stackStr if (stackStr != "") else "",
-		msg
-	]
-	
-	_printMethods[level].call(formattedmsg)
-	
-func _format_stack(stack: Array[Dictionary]) -> String:
-	print("Original stack: %s" % stack)
+	var newDbg = Dbg.new(modId, modEntry, dbgSettings)
+	newDbg._dbgUtils = self
+	_dbgInstances[modId] = newDbg
 
-	var prevLine := ""
-	var curDepth := 0
-	var maxDepth: int = _settings.maxDepth
-	var workingStack = stack.slice(1) if (stack[0]["function"] == "_send_message") else stack
+	dbg.debug("Attached new DbgInstance with modId '%s'" % modId)
 
-	if (_settings.maxDepth > 0):
-		if (workingStack.size() > _settings.maxDepth):
-			workingStack = stack.slice(_settings.maxDepth)
+	return newDbg
 
-	for frame in workingStack: # remove last frame (log fn)
-		var fileName: String = frame["source"].get_file()
-		var fnName: String = frame["function"]
-		var newStr := "%s(%s)" % [fileName, fnName] if (_settings.includeFileSource) else fnName
+## Detach the Dbg instance with the given modId. 
+## Returns true if successful, false if no instance with the modId was found.
+func detach(modId: String) -> bool:
+	if (modId not in _dbgInstances):
+		dbg.error("No DbgInstance with the modId '%s' -- detach() failed." % modId)
+		return false
 
-		if ("line" in frame and _settings.includeLine):
-			newStr += ":%d" % [frame["line"]]
+	_dbgInstances.erase(modId)
 
-		if (prevLine != ""):
-			newStr = "%s <- %s" % [prevLine, newStr]
+	dbg.debug("Detached DbgInstance with modId '%s'" % modId)
 
-		prevLine = newStr
-		curDepth += 1
+	return true
 
-		if (maxDepth != 0 and curDepth >= maxDepth):
-			break
-	
-	return prevLine
+## Get the current text in the custom logger's display box.
+func get_current_log() -> String:
+	return _customLoggerUI.DisplayTextBox.text
 
-func _is_at_least_level(level: LogLevel) -> bool:
-	return level >= _settings.level
+func _notification(what: int) -> void:
+	if (what == NOTIFICATION_PREDELETE):
+		for dbgInstance in _dbgInstances.values():
+			dbgInstance.settings = null
+		_dbgInstances.clear()
 
-func _get_color_for_level(level: LogLevel) -> Color:
-	return _settings.colors[level]
+func _input(event: InputEvent) -> void:
+	if (event is InputEventKey and event.is_pressed() and event.keycode == Key.KEY_F5):
+		dbg.debug("This is a debug message")
+		dbg.info("This is an info message")
+		dbg.warning("This is a warning message")
+		dbg.error("This is an error message")
+		dbg.debug("DbgUtils also supports [wave][rainbow]rich text![/rainbow][/wave]")
 
-func _get_level_name(level: LogLevel) -> String:
-	return LogLevel.keys()[level]
+#region CustomLogger
+
+class CustomLogger extends Logger:
+		var _dbgUtils: Node = null
+
+		func _init(dbgUtils: Node) -> void:
+			OS.add_logger(self )
+			_dbgUtils = dbgUtils
+		
+		func _log_message(message: String, _error: bool) -> void:
+			if (!_dbgUtils or !_dbgUtils.is_node_ready()):
+				return
+
+			message = message.replace("[DEBUG]", "[color=medium_purple][b][DEBUG][/b][/color]")
+			message = message.replace("[INFO]", "[color=deep_sky_blue][b][INFO][/b][/color]")
+			message = message.replace("[WARNING]", "[color=yellow][b][WARNING][/b][/color]")
+			message = message.replace("[ERROR]", "[color=red][b][ERROR][/b][/color]")
+
+			_dbgUtils._customLoggerUI._AppendText.call_deferred("%s" % message)
+
+		func _log_error(
+				function: String,
+				file: String,
+				line: int,
+				code: String,
+				rationale: String,
+				_editor_notify: bool,
+				error_type: int,
+				script_backtraces: Array[ScriptBacktrace]
+		) -> void:
+			if (!_dbgUtils or !_dbgUtils.is_node_ready()):
+				return
+
+			var prefix: String = ""
+
+			# The column at which to print the trace. Should match the length of the
+			# unformatted text above it.
+			var trace_indent := 0
+
+			match error_type:
+				ERROR_TYPE_ERROR:
+					prefix = "[color=#f54][b]ERROR:[/b]"
+					trace_indent = 6
+				ERROR_TYPE_WARNING:
+					prefix = "[color=#fd4][b]WARNING:[/b]"
+					trace_indent = 8
+				ERROR_TYPE_SCRIPT:
+					prefix = "[color=#f4f][b]SCRIPT ERROR:[/b]"
+					trace_indent = 13
+				ERROR_TYPE_SHADER:
+					prefix = "[color=#4bf][b]SHADER ERROR:[/b]"
+					trace_indent = 13
+				
+			var trace: String = "%*s %s (%s:%s)" % [trace_indent, "at:", function, file, line]
+			var script_backtraces_text: String = ""
+
+			for backtrace in script_backtraces:
+				script_backtraces_text += backtrace.format(trace_indent - 3) + "\n"
+
+			_dbgUtils._customLoggerUI._AppendText.call_deferred(
+				"[code]%s %s %s[/color]\n[color=#999]%s[/color]\n[color=#999]%s[/color][code]" % [
+					prefix,
+					code,
+					rationale,
+					trace,
+					script_backtraces_text,
+				]
+			)
+
+		func _notification(what: int) -> void:
+			if (what == NOTIFICATION_PREDELETE):
+				OS.remove_logger(self )
+
+#endregion CustomLogger
