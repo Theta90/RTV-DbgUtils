@@ -1,6 +1,6 @@
 # DbgUtils - Road to Vostok Debug Utilities
 
-A debugging utility mod for modders that provides an in-game UI menu and logging tools to assist with mod development during runtime. The settings for this mod are all accessible
+A debugging utility mod for modders that provides an in-game UI menu and logging tools to assist with mod development during runtime.
 
 ## Usage
 
