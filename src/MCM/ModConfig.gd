@@ -107,7 +107,7 @@ func _ready() -> void:
 				_element.add_child(_notInstalledUI)
 				return
 
-	dbg.debug("Initialization complete.")
+	#dbg.debug("Initialization complete.")
 
 func _ConnectToMCM() -> Array: # returns [Error, ConfigFile?]
 	var result = [Error.OK, null]
@@ -163,14 +163,13 @@ func _LoadConfigFile() -> Array:
 	return result
 
 func _UpdateConfigProperties(config: ConfigFile):
-	dbg.debug("_UpdateConfigProperties called, updates:")
-
+	#dbg.debug("_UpdateConfigProperties called, updates:")
 	for key in _localConfig.keys():
 		var section = _localConfig[key][0]
 		var newValue = config.get_value(section, key)["value"]
 		SetLocalConfigValue(key, newValue)
 		
-	dbg.debug("-> _UpdateConfigProperties ended")
+	#dbg.debug("-> _UpdateConfigProperties ended")
 
 func GetLocalConfig(key: String) -> Variant:
 	return _localConfig[key]
