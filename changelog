@@ -10,6 +10,7 @@ Version 1.1.0
 
 - Added MCM integration for easier settings management.
 - Improved color coding in the logger.
+- Logger position is retained when toggling the UI off and back on.
 - Improved logging performance.
 - Replaced the scene heirarchy with a more efficient structure. This should allow for better control over the UI, therefore makes expanding the UI with new features easier in the future.
 - Removed "attach" and "detach" functions from the DbgUtils main class, as they were not necessary and ultimately just added extra complexity for no real benefit.
