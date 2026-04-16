@@ -3,32 +3,59 @@ extends Node
 signal ConfigValueChanged(ConfigKey: String, NewValue: Variant)
 
 static var DEFAULT_CONFIG_SETTINGS = {
+	# General
 	"openOnMenu": true,
+
+	# Keybinds
 	"toggleDebugUIKey": Key.KEY_QUOTELEFT,
 	"toggleMouseKey": Key.KEY_PERIOD,
-	"colorEntireLine": true,
+
+	# Logging Colors
+	"colorEntireMessage": true,
 	"defaultColorDebug": Color("#c0c0c0"),
 	"defaultColorInfo": Color("#74c0fc"),
 	"defaultColorWarning": Color("#f3d963"),
 	"defaultColorError": Color("#f54"),
+
+	# Filtering
+	"filterHighlightEnabled": true,
+	"filterRemoveNonMatches": true,
+	"filterHighlightColor": Color("#ffff00"),
+	"filterTextColor": Color("black"),
 }
 
 const MOD_ID := "DbgUtils"
 const MOD_NAME := "DbgUtils"
 const FILE_PATH := "user://MCM/DbgUtils"
+const FILE_NAME := "config.ini"
 
 const gameData := preload("res://Resources/GameData.tres")
 const MCM := preload("res://ModConfigurationMenu/Scripts/Doink Oink/MCM_Helpers.tres")
 const MCMNotInstalledUI := preload("res://mods/DbgUtils/MCM/mcm_not_installed.tscn")
 
-var dbg := preload("res://mods/DbgUtils/Dbg.gd").new("DbgUtilsModConfig", self , null)
+var _localConfig: Dictionary[String, Array] = {
 
-var _localConfig = {
+	#region General
+
+	"General" = ["Category", "General", {
+		"menu_pos" = 1
+	}],
+
 	"openOnMenu" = ["Bool", "openOnMenu", {
 		"name" = "Open In Main Menu",
 		"tooltip" = "Whether the mod should open in the main menu. The mod is still accessible in-game through the keybind to " +
 			"toggle the UI, this only sets if the UI will appear when entering the main menu.",
 		"category" = "General",
+	}],
+
+	#endregion General
+
+	# openOnError
+
+	#region Keybinds
+
+	"Keybinds" = ["Category", "Keybinds", {
+		"menu_pos" = 2
 	}],
 
 	"toggleDebugUIKey" = ["Keycode", "toggleDebugUIKey", {
@@ -51,7 +78,15 @@ var _localConfig = {
 		"menu_pos" = 2
 	}],
 
-	"colorEntireLine" = ["Bool", "colorEntireLine", {
+	#endregion Keybinds
+
+	#region Logging Colors
+
+	"Logging Colors" = ["Category", "Logging Colors", {
+		"menu_pos" = 3
+	}],
+
+	"colorEntireMessage" = ["Bool", "colorEntireMessage", {
 		"name" = "Color Entire Lines",
 		"tooltip" = "Whether the log level colors should apply to the entire line, or just the log level text at the start of the line.",
 		"category" = "Logging Colors",
@@ -86,42 +121,71 @@ var _localConfig = {
 		"menu_pos" = 5
 	}],
 
-	"General" = ["Category", "General", {
+	#endregion Logging Colors
+
+	#region Filtering
+
+	"Filtering" = ["Category", "Filtering", {
+		"menu_pos" = 4
+	}],
+
+	"filterHighlightEnabled" = ["Bool", "filterHighlightEnabled", {
+		"name" = "Highlight Filter Matches",
+		"tooltip" = "Whether to highlight the text that matches the filter in the log viewer. The color used for highlighting is determined by the 'Filter Highlight Color' setting.",
+		"category" = "Filtering",
 		"menu_pos" = 1
 	}],
 
-	"Keybinds" = ["Category", "Keybinds", {
+	"filterRemoveNonMatches" = ["Bool", "filterRemoveNonMatches", {
+		"name" = "Remove Non-Matches",
+		"tooltip" = "Whether to hide log messages that don't match the filter in the log viewer. If disabled, non-matching messages will remain. " +
+			"If 'Highlight Filter Matches' is also disabled, filtering will be essentially disabled.",
+		"category" = "Filtering",
 		"menu_pos" = 2
 	}],
 
-	"Logging Colors" = ["Category", "Logging Colors", {
+	"filterHighlightColor" = ["Color", "filterHighlightColor", {
+		"name" = "Filter Highlight Color",
+		"tooltip" = "The color used to highlight the text that matches the filter in the log viewer.",
+		"category" = "Filtering",
 		"menu_pos" = 3
-	}]
+	}],
+
+	"filterTextColor" = ["Color", "filterTextColor", {
+		"name" = "Filter Text Color",
+		"tooltip" = "The color used to color the text that matches the filter in the log viewer.",
+		"category" = "Filtering",
+		"menu_pos" = 4
+	}],
+
+	#endregion Filtering
 }
 
-func _ready() -> void:
-	dbg.debug("Initializing...")
+var connectionError: Error = Error.OK
+var isFirstUse: bool = true
 
+func _init() -> void:
+	pass
+
+func _ready() -> void:
 	for k in _localConfig.keys():
 		if (_localConfig[k][0] == "Category"):
 			continue
 		
 		_localConfig[k][2]["default"] = DEFAULT_CONFIG_SETTINGS[k]
 		_localConfig[k][2]["value"] = DEFAULT_CONFIG_SETTINGS[k]
-	
+
 	var result = _ConnectToMCM()
 	var error: Error = result[0]
 
 	if (error == Error.OK):
-		dbg.info("%s connected to MCM successfully" % MOD_NAME)
-
 		for k in _localConfig.keys():
 			if (_localConfig[k][0] == "Category"):
 				continue
 
 			ConfigValueChanged.emit(k, _localConfig[k][2]["value"])
 	else:
-		dbg.error("%s failed to connect to MCM with the error: %s" % [MOD_NAME, error_string(error)])
+		connectionError = error
 		
 		var _notInstalledUI = MCMNotInstalledUI.instantiate()
 		_notInstalledUI.find_child("Link").pressed.connect(func():
@@ -147,7 +211,8 @@ func _ConnectToMCM() -> Array: # returns [Error, ConfigFile?]
 	var result = [Error.OK, null]
 
 	if (!MCM):
-		dbg.warning("MCM is not installed, so DbgUtils will have limited functionality!")
+		connectionError = Error.ERR_FILE_MISSING_DEPENDENCIES
+		return [connectionError, null]
 
 	result = _LoadConfigFile()
 	if (result[0] != Error.OK):
@@ -159,36 +224,36 @@ func _ConnectToMCM() -> Array: # returns [Error, ConfigFile?]
 	return result
 
 func _RegisterConfig():
+	var fileOnSaveCallbacks = {}
+	fileOnSaveCallbacks[FILE_NAME] = _UpdateConfigProperties
+
 	MCM.RegisterConfiguration(
 		MOD_ID,
 		MOD_NAME,
 		FILE_PATH,
 		"Allows for changing of nearly every setting in the game possible.",
-		{
-			"config.ini" = _UpdateConfigProperties
-		},
+		fileOnSaveCallbacks,
 		self
 	)
 
 func _LoadConfigFile() -> Array:
-	var configPath = FILE_PATH + "/config.ini"
+	var configPath = "%s/%s" % [FILE_PATH, FILE_NAME]
 	var result = [Error.OK, ConfigFile.new()] # [error, ConfigFile?]
 		
 	for k in _localConfig.keys():
 		result[1].set_value(_localConfig[k][0], k, _localConfig[k][2])
 
 	if !FileAccess.file_exists(configPath):
-		result[0] = DirAccess.open("user://").make_dir(FILE_PATH)
+		if (!DirAccess.dir_exists_absolute(FILE_PATH)):
+			result[0] = DirAccess.open("user://").make_dir(FILE_PATH)
 
 		if (result[0] != Error.OK):
 			return result
 		
 		result[0] = result[1].save(configPath)
 
-		dbg.info("Thanks for using DbgUtils! A config file has been created at %s. " +
-			"These settings can be changed via MCM (if installed). Enjoy!!" % configPath)
-
 	else:
+		isFirstUse = false
 		MCM.CheckConfigurationHasUpdated(MOD_ID, result[1], configPath)
 		result[0] = result[1].load(configPath)
 
@@ -203,18 +268,32 @@ func _UpdateConfigProperties(config: ConfigFile):
 			continue
 
 		var newValue = config.get_value(section, key)["value"]
-		SetLocalConfigValue(key, newValue)
+		SetConfigValue(key, newValue)
 		
 	#dbg.debug("-> _UpdateConfigProperties ended")
 
+func HasConfigKey(key: String) -> bool:
+	return key in _localConfig
+
 func GetLocalConfig(key: String) -> Variant:
-	return _localConfig[key]
+	if (key in _localConfig):
+		return _localConfig[key]
+	return null
 
-func GetLocalConfigValue(key: String) -> Variant:
-	return _localConfig[key][2]["value"]
+func GetConfigValue(key: String, default: Variant = null) -> Variant:
+	if (key in _localConfig):
+		return _localConfig[key][2]["value"]
+	return default
 
-func SetLocalConfigValue(key: String, value: Variant) -> void:
-	var oldValue = GetLocalConfigValue(key)
+func GetConfigValueOrDefault(key: String) -> Variant:
+	return GetConfigValue(key, DEFAULT_CONFIG_SETTINGS[key])
+
+func SetConfigValue(key: String, value: Variant) -> void:
+	if (!(key in _localConfig)):
+		push_error("DbgUtilsModConfig Error: Tried to set a config value with an invalid key '%s'" % key)
+		return
+
+	var oldValue = GetConfigValue(key)
 	if (value != oldValue):
 		_localConfig[key][2]["value"] = value
 		ConfigValueChanged.emit(key, value)
