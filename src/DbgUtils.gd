@@ -62,7 +62,7 @@ func _ready() -> void:
 
 		_customLoggerUI.CreateMenu(_configSettings)
 
-		dbg.debug("DbgUtils initialized, [wave][rainbow]have a nice day![/rainbow][/wave]")
+		dbg.info("DbgUtils initialized, [wave][rainbow]have a nice day![/rainbow][/wave]")
 	else:
 		dbg = _autoload.dbg
 		_logger = _autoload._logger
@@ -71,6 +71,8 @@ func _ready() -> void:
 		_configSettings = _autoload._configSettings
 
 	get_tree().scene_changed.connect(_on_scene_changed)
+
+	process_mode = Node.PROCESS_MODE_ALWAYS
 
 	dbg.debug("%s is now attached to DbgUtils" % dbg._modId)
 
