@@ -4,22 +4,31 @@ A debugging utility mod for modders that provides an in-game UI menu and logging
 
 ## Usage
 
-Example usage of the logger in your mod's code:
+Example usage of the logger in your mod's code (don't forget to check the MCM settings too!):
 
 ```gdscript
 # preload & new() the script, optionally providing a DbgSettings .tres
 var dbg := preload("res://mods/DbgUtils/Dbg.gd").new(MOD_ID, self , null)
 
 func _ready() -> void:
-	# Change settings directly if desired (or use apply_settings(...))
-	dbg.settings.includeTime = true
-	dbg.settings.maxDepth = 3
-
-	# Will print to both the console & to the log file
-	dbg.debug("Initializing...")
+	dbg.debug("This is a debug message!")
 	dbg.info("This is an info message!")
 	dbg.warning("This is a warning message!")
 	dbg.error("This is an error message!")
+
+	dbg.settings.includeTime = true
+	dbg.settings.includeDate = true
+	dbg.info("Include timestamps and dates")
+
+	dbg.settings.includeFileSource = true
+	dbg.settings.includeLine = true
+	var nest1 = func someFunc():
+		var nest2 = func nFunc():
+			dbg.info("Add a minimal stack trace")
+		nest2.call()
+	nest1.call()
+
+	dbg.error("Any BBCode is supported, go [rainbow sat=0.5 speed=0.1][tornado radius=10]🌪crazy🌪[/tornado][/rainbow]!!")
 ```
 
 There are two hotkeys:
