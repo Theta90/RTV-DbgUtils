@@ -8,32 +8,34 @@ signal MenuRectChanged(newRect: Rect2, menu: LoggerMenu)
 
 static var ScenePath: String = "res://mods/DbgUtils/Logger/CustomLoggerUI.tscn"
 
+const ModConfig := preload("res://mods/DbgUtils/MCM/ModConfig.gd")
 const LoggerMenu := preload("res://mods/DbgUtils/Logger/LoggerMenu.gd")
 
+var _visibilityDisabled: bool = false
 var _loggerMenus: Array[LoggerMenu] = []
 
 var dbg := preload("res://mods/DbgUtils/Dbg.gd").new("CustomLoggerUI", self , null)
 
-var _visibilityDisabled: bool = false
-
 func _ready() -> void:
 	pass
 
-func CreateMenu(configSettings: Dictionary) -> LoggerMenu:
+func CreateMenu(modConfig: ModConfig) -> LoggerMenu:
 	var newMenu = load(LoggerMenu.LoggerMenuPath).instantiate() as LoggerMenu
-	
-	newMenu.ChangeVisibility(configSettings["openOnMenu"])
-	newMenu.UpdateWindowRect(newMenu.MENU_RECT)
+
+	_loggerMenus.append(newMenu)
 
 	add_child(newMenu)
-	_loggerMenus.append(newMenu)
+
+	newMenu.SetModConfig(modConfig)
+	newMenu.ChangeVisibility(modConfig.GetConfigValue("openOnMenu"))
+	newMenu.UpdateWindowRect(newMenu.MENU_RECT)
 
 	newMenu.VisibilityChanged.connect(_on_logger_menu_visibility_changed.bind(newMenu as LoggerMenu))
 	newMenu.ExpandedChanged.connect(_on_logger_menu_expanded_changed.bind(newMenu as LoggerMenu))
 	newMenu.Moved.connect(_on_logger_menu_moved.bind(newMenu as LoggerMenu))
 	newMenu.Resized.connect(_on_logger_menu_resized.bind(newMenu as LoggerMenu))
 
-	emit_signal("MenuCreated", newMenu)
+	MenuCreated.emit(newMenu)
 
 	return newMenu
 
@@ -81,8 +83,8 @@ func DestroyAllMenus():
 	_loggerMenus.clear()
 	_visibilityDisabled = false
 
-func AddLog(msg: String, level: String = "DEBUG"):
-	ForEach(func(menu): menu.AddLog(msg, level))
+func AddLog(msgData: Dictionary):
+	ForEach(func(menu): (menu as LoggerMenu).AddLog(msgData))
 
 #region "LINQ"
 
