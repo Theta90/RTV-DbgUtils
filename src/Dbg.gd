@@ -14,13 +14,14 @@ const _print_methods = {
 
 var settings := DbgSettings.new()
 
-func _init(modId: String = "", modEntry: Object = null, dbgSettings: DbgSettings = null) -> void:
+func _init(modId: String = "no modId", modEntry: Object = null, dbgSettings: DbgSettings = null) -> void:
 	_modId = modId
 
 	if (dbgSettings != null):
 		apply_settings(dbgSettings)
 
-	if (_modId == "" and modEntry == null):
+	if (_modId == "no modId" and modEntry == null):
+		push_warning("Dbg initialized without a modId or modEntry.")
 		return
 
 	if (modEntry != null):
@@ -28,7 +29,7 @@ func _init(modId: String = "", modEntry: Object = null, dbgSettings: DbgSettings
 		if (script != null):
 			_scriptPath = script.resource_path
 
-	if (modEntry == null and _scriptPath == null and _scriptPath == ""):
+	if (modEntry == null and (_scriptPath == null or _scriptPath == "")):
 		_scriptPath = modId
 
 func apply_settings(newSettings: DbgSettings) -> void:
@@ -45,7 +46,7 @@ func log(
 	level = level.to_upper()
 
 	if (level not in ["DEBUG", "INFO", "WARNING", "ERROR"]):
-		push_error("Invalid log level '%s'. Defaulting to 'DEBUG'." % level)
+		push_error("DbgUtils: Dbg.log() for %s tried to use an invalid log level '%s'. Defaulting to 'DEBUG'." % [_modId, level])
 		level = "DEBUG"
 	
 	_send_message(msg, stack, level)
@@ -62,6 +63,8 @@ func warning(msg: String, stack = get_stack()) -> void:
 func error(msg: String, stack = get_stack()) -> void:
 	_send_message(msg, stack, "ERROR")
 
+## Do not use this method directly!
+## Instead, use log() with the appropriate log level, or one of the helper methods debug(), info(), warning(), or error().
 func _send_message(
 	msg: String,
 	stack: Array[Dictionary],
@@ -83,8 +86,8 @@ func _send_message(
 	var formattedMsg = "%s%s%s%s: %s" % [
 		"[%s]" % whenStr if (whenStr != "") else "",
 		"[%s]" % _modId,
-		"[%s]" % stackStr if (stackStr != "") else "",
 		"[%s]" % level,
+		"[%s]" % stackStr if (stackStr != "") else "",
 		msg
 	]
 
@@ -94,13 +97,11 @@ func _format_stack(stack: Array[Dictionary]) -> String:
 	var prevLine := ""
 	var curDepth := 0
 	var maxDepth: int = settings.maxDepth
-	var workingStack = stack.slice(1) if (stack[0]["function"] == "_send_message") else stack
 
-	if (settings.maxDepth > 0):
-		if (workingStack.size() > settings.maxDepth):
-			workingStack = stack.slice(settings.maxDepth)
+	for frame in stack:
+		if (frame["source"] == get_script().resource_path):
+			continue # skip frames from Dbg itself
 
-	for frame in workingStack: # remove last frame (log fn)
 		var fileName: String = frame["source"].get_file()
 		var fnName: String = frame["function"]
 		var newStr := "%s(%s)" % [fileName, fnName] if (settings.includeFileSource) else fnName

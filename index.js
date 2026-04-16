@@ -1,14 +1,12 @@
 import modBuilder from "rtv-modbuilder";
 import packageInfoJson from "./package.json" with { type: "json" };
 
-const modName = packageInfoJson.displayName;
-
 await modBuilder({
   projectRoot: "",
   outDir: "build",
   packageInfo: {
     id: packageInfoJson.name,
-    name: modName,
+    name: packageInfoJson.displayName,
     version: packageInfoJson.version,
   },
   globs: [
@@ -23,6 +21,7 @@ await modBuilder({
     },
     author: "Theta",
     priority: -999,
+    modworkshopID: "56137",
   },
   options: {
     includeVersionInName: true,

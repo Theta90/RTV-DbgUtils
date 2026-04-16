@@ -33,8 +33,8 @@ func _ready() -> void:
 
 There are two hotkeys:
 
-- `~` to toggle the debug UI menu
-- `.` to show/hide the mouse cursor (useful while in-game & mouse is hidden)
+- `~` to toggle the debug UI menu. This can be changed in the MCM settings if you want to use a different key.
+- `.` to show/hide the mouse cursor (useful while in-game & mouse is hidden). This can also be changed in the MCM settings.
 
 ## Overview
 
