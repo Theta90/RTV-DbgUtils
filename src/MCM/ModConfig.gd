@@ -28,13 +28,16 @@ var _localConfig = {
 		"name" = "Open In Main Menu",
 		"tooltip" = "Whether the mod should open in the main menu. The mod is still accessible in-game through the keybind to " +
 			"toggle the UI, this only sets if the UI will appear when entering the main menu.",
+		"category" = "General",
 	}],
 
 	"toggleDebugUIKey" = ["Keycode", "toggleDebugUIKey", {
 		"name" = "Toggle UI Key",
 		"tooltip" = "The key used to show and hide the UI layer for all the debug tools.",
 		"defaultType" = "Key",
-		"type" = "Key"
+		"type" = "Key",
+		"category" = "Keybinds",
+		"menu_pos" = 1
 	}],
 
 	"toggleMouseKey" = ["Keycode", "toggleMouseKey", {
@@ -43,39 +46,66 @@ var _localConfig = {
 			"where the mouse is locked to the center of the screen and hidden, and Input.MouseMode.MOUSE_MODE_CONFINED, where the " +
 			"mouse is free and visible, but locked to the game window.",
 		"defaultType" = "Key",
-		"type" = "Key"
+		"type" = "Key",
+		"category" = "Keybinds",
+		"menu_pos" = 2
 	}],
 
 	"colorEntireLine" = ["Bool", "colorEntireLine", {
 		"name" = "Color Entire Lines",
 		"tooltip" = "Whether the log level colors should apply to the entire line, or just the log level text at the start of the line.",
+		"category" = "Logging Colors",
+		"menu_pos" = 1
 	}],
 
 	"defaultColorDebug" = ["Color", "defaultColorDebug", {
 		"name" = "Logging Color: 1. Debug",
 		"tooltip" = "The color used for log messages with the level 'DEBUG'.",
+		"category" = "Logging Colors",
+		"menu_pos" = 2
 	}],
 
 	"defaultColorInfo" = ["Color", "defaultColorInfo", {
 		"name" = "Logging Color: 2. Info",
 		"tooltip" = "The color used for log messages with the level 'INFO'.",
+		"category" = "Logging Colors",
+		"menu_pos" = 3
 	}],
 
 	"defaultColorWarning" = ["Color", "defaultColorWarning", {
 		"name" = "Logging Color: 3. Warning",
 		"tooltip" = "The color used for log messages with the level 'WARNING'.",
+		"category" = "Logging Colors",
+		"menu_pos" = 4
 	}],
 
 	"defaultColorError" = ["Color", "defaultColorError", {
 		"name" = "Logging Color: 4. Error",
 		"tooltip" = "The color used for log messages with the level 'ERROR'.",
+		"category" = "Logging Colors",
+		"menu_pos" = 5
 	}],
+
+	"General" = ["Category", "General", {
+		"menu_pos" = 1
+	}],
+
+	"Keybinds" = ["Category", "Keybinds", {
+		"menu_pos" = 2
+	}],
+
+	"Logging Colors" = ["Category", "Logging Colors", {
+		"menu_pos" = 3
+	}]
 }
 
 func _ready() -> void:
 	dbg.debug("Initializing...")
 
 	for k in _localConfig.keys():
+		if (_localConfig[k][0] == "Category"):
+			continue
+		
 		_localConfig[k][2]["default"] = DEFAULT_CONFIG_SETTINGS[k]
 		_localConfig[k][2]["value"] = DEFAULT_CONFIG_SETTINGS[k]
 	
@@ -84,7 +114,11 @@ func _ready() -> void:
 
 	if (error == Error.OK):
 		dbg.info("%s connected to MCM successfully" % MOD_NAME)
+
 		for k in _localConfig.keys():
+			if (_localConfig[k][0] == "Category"):
+				continue
+
 			ConfigValueChanged.emit(k, _localConfig[k][2]["value"])
 	else:
 		dbg.error("%s failed to connect to MCM with the error: %s" % [MOD_NAME, error_string(error)])
@@ -114,7 +148,7 @@ func _ConnectToMCM() -> Array: # returns [Error, ConfigFile?]
 
 	if (!MCM):
 		result[0] = Error.ERR_FILE_MISSING_DEPENDENCIES
-		dbg.error("MCM is not installed, but DbgUtils needs it as a dependency!")
+		dbg.warning("MCM is not installed, but DbgUtils needs it as a dependency!")
 		return result
 
 	result = _LoadConfigFile()
@@ -166,6 +200,10 @@ func _UpdateConfigProperties(config: ConfigFile):
 	#dbg.debug("_UpdateConfigProperties called, updates:")
 	for key in _localConfig.keys():
 		var section = _localConfig[key][0]
+		
+		if (_localConfig[key][0] == "Category"):
+			continue
+
 		var newValue = config.get_value(section, key)["value"]
 		SetLocalConfigValue(key, newValue)
 		
