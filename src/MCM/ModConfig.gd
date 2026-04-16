@@ -59,28 +59,28 @@ var _localConfig = {
 	}],
 
 	"defaultColorDebug" = ["Color", "defaultColorDebug", {
-		"name" = "Logging Color: 1. Debug",
+		"name" = "Debug",
 		"tooltip" = "The color used for log messages with the level 'DEBUG'.",
 		"category" = "Logging Colors",
 		"menu_pos" = 2
 	}],
 
 	"defaultColorInfo" = ["Color", "defaultColorInfo", {
-		"name" = "Logging Color: 2. Info",
+		"name" = "Info",
 		"tooltip" = "The color used for log messages with the level 'INFO'.",
 		"category" = "Logging Colors",
 		"menu_pos" = 3
 	}],
 
 	"defaultColorWarning" = ["Color", "defaultColorWarning", {
-		"name" = "Logging Color: 3. Warning",
+		"name" = "Warning",
 		"tooltip" = "The color used for log messages with the level 'WARNING'.",
 		"category" = "Logging Colors",
 		"menu_pos" = 4
 	}],
 
 	"defaultColorError" = ["Color", "defaultColorError", {
-		"name" = "Logging Color: 4. Error",
+		"name" = "Error",
 		"tooltip" = "The color used for log messages with the level 'ERROR'.",
 		"category" = "Logging Colors",
 		"menu_pos" = 5
@@ -147,9 +147,7 @@ func _ConnectToMCM() -> Array: # returns [Error, ConfigFile?]
 	var result = [Error.OK, null]
 
 	if (!MCM):
-		result[0] = Error.ERR_FILE_MISSING_DEPENDENCIES
-		dbg.warning("MCM is not installed, but DbgUtils needs it as a dependency!")
-		return result
+		dbg.warning("MCM is not installed, so DbgUtils will have limited functionality!")
 
 	result = _LoadConfigFile()
 	if (result[0] != Error.OK):
