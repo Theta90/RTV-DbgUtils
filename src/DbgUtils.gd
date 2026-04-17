@@ -263,7 +263,8 @@ func _input(event: InputEvent) -> void:
 				_on_toggle_mouse_mode_key_pressed()
 
 		elif (event.keycode == Key.KEY_MINUS and event.is_pressed()):
-			_Tour()
+			if (OS.is_debug_build()):
+				_Tour()
 
 #region CustomLogger
 
