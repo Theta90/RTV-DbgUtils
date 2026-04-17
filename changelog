@@ -1,3 +1,12 @@
+Version 1.2.1
+
+- Performance improvements, especially with a large number of log entries.
+
+Known Issues:
+
+- Performance!
+- Resizing the window now operates on a very short cooldown, which can cause it to seem stuttery when resizing the window.
+
 Version 1.2.0
 
 - Implemented a new search filter for the logger, with optional highlighting and removal of non-matching entries.
