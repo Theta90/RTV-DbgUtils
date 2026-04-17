@@ -90,6 +90,8 @@ func _ready() -> void:
 	ResetWindow(true, true, MENU_RECT)
 
 	_preMinimizeRect = get_rect()
+
+	_lastResizeMsec = Time.get_ticks_msec()
 	
 func _physics_process(_delta: float) -> void:
 	if (_mouseIsDraggingWindow):
