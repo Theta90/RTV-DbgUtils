@@ -383,12 +383,13 @@ func _ApplyFilterToLogs(filterText: String, logs = null):
 	if (matches.size() == 0):
 		DisplayTextBox.append_text("[color=#999]\"%s\" was not found in any log messages[/color]" % filterText)
 	else:
-		var batchSize = 50
-		for i in range(0, matches.size(), batchSize):
-			var batch = matches.slice(i, i + batchSize)
-			DisplayTextBox.append_text(batch.reduce(func(a, b): return a + "\n" + b))
-		#for el in matches:
-		#	DisplayTextBox.append_text(el)
+		# todo
+		#var batchSize = 50
+		#for i in range(0, matches.size(), batchSize):
+		#	var batch = matches.slice(i, i + batchSize)
+		#	DisplayTextBox.append_text(batch.reduce(func(a, b): return a + "\n" + b))
+		for el in matches:
+			DisplayTextBox.append_text(el)
 
 ## Returns String | null (if the msg didn't match the filter and should be removed)
 func _FilterMessage(msg: String, filterText: String) -> Variant:
