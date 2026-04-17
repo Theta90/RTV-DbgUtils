@@ -39,7 +39,7 @@ var _mouseDownPosition: Vector2 = Vector2.ZERO # Where the mouse was when it cli
 var _mouseLeftButtonPressed: bool = false
 
 var _resizeCooldownMsec: int = 50
-var _lastResizeMsec = 0
+var _lastResizeMsec = 999999
 
 # Yes, this is ugly :(
 ## type MsgData = {
