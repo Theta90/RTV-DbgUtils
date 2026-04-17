@@ -1,10 +1,22 @@
-Version 1.0.0:
+Version 1.2.0
 
-- Initial release of the project.
+- Implemented a new search filter for the logger, with optional highlighting and removal of non-matching entries.
+- The highlight color can be customized in the MCM settings, and can also be disabled entirely.
+- Each log level's color can now be customized in the MCM settings.
+- Fixed a crash that occurred when MCM was not installed
 
 Known Issues:
 
-- The logger does not function while the game is paused.
+- I haven't been able to fully profile the logger performance with the new search filter, but it may cause some slowdown when filtering a large number of log entries.
+
+Version 1.1.1
+
+- Fixed an issue where the logger would not function while the game was paused.
+- Added categories and order to the MCM settings. It looks a lot nicer now!
+
+Known Issues:
+
+- The color coding is still a WIP.
 
 Version 1.1.0
 
@@ -21,11 +33,10 @@ Known Issues:
 - The logger does not function while the game is paused. This is a deeper issue than I expected, and will take a little longer to get figured out.
 - The color coding is still a WIP, and may not be fully consistent across all log levels. I will continue to refine this in future updates.
 
-Version 1.1.1
+Version 1.0.0:
 
-- Fixed an issue where the logger would not function while the game was paused.
-- Added categories and order to the MCM settings. It looks a lot nicer now!
+- Initial release of the project.
 
 Known Issues:
 
-- The color coding is still a WIP.
+- The logger does not function while the game is paused.

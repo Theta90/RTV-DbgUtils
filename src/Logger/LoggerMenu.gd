@@ -9,16 +9,22 @@ signal Resized(newSize: Vector2)
 @export var WindowContent: PanelContainer
 @export var HeaderBar: PanelContainer
 @export var ResizeHandle: TextureRect
+@export var FilterEdit: LineEdit
 
 ## The scene holding this script
 static var LoggerMenuPath: String = "res://mods/DbgUtils/Logger/LoggerMenu.tscn"
+
+const DbgUtils := preload("res://mods/DbgUtils/DbgUtils.gd")
+const ModConfig := preload("res://mods/DbgUtils/MCM/ModConfig.gd")
 
 const MENU_RECT := Rect2(Vector2(1300, 600), Vector2(500, 300))
 const DEFAULT_RECT := Rect2(Vector2(0, 0), Vector2(400, 200))
 const MINIMIZED_RECT := Rect2(Vector2(0, 0), Vector2(128, 30))
 
+var _modConfig: ModConfig = null
+
 var _maxLogs: int = 1000 # todo: make configurable in this window
-var _logLevel: String = "DEBUG" # todo: make configurable in this window
+var _logLevel: int = 0 # todo: make configurable in this window
 
 var _preMinimizeRect := Rect2()
 var _preMoveRect := Rect2()
@@ -27,11 +33,31 @@ var _isExpanded: bool = false
 
 var _mouseIsDraggingWindow: bool = false
 var _mouseIsResizingWindow: bool = false
-
 var _mouseDownPosition: Vector2 = Vector2.ZERO # Where the mouse was when it clicked the HeaderBar
 var _mouseLeftButtonPressed: bool = false
 
-var _logs: Array[String] = []
+# Yes, this is ugly. Do I care? Okay, kinda :(
+## type MsgData = {
+## 	raw: `String`,
+## 	levelName: `String`,
+## 	levelInt: `int`,
+## 	levelPos: `Array[int, int]`,
+##	formattedMsg: `String` | `null`,
+##  errData?: {
+##		function: `String`,
+##		file: `String`,
+##		line: `int`,
+##		code: `String`,
+##		rationale: `String`,
+##		errorType: `int`,
+##		errorName: `String`,
+##		existingPrefix: `String`,
+##		generatedPrefix: `String`,
+##		trace: `String`,
+##		backtrace: `String` # "[color=#999]%s[/color]" % [script_backtraces_text]
+##	}
+## }
+var _logs: Array[Dictionary] = []
 
 func _ready() -> void:
 	var fonts = {
@@ -66,6 +92,15 @@ func _physics_process(_delta: float) -> void:
 	
 	if (_mouseIsResizingWindow):
 		_HandleResize()
+
+func SetModConfig(config: ModConfig):
+	if (_modConfig != null):
+		if (_modConfig.is_connected("ConfigValueChanged", _on_mod_config_value_changed)):
+			_modConfig.ConfigValueChanged.disconnect(_on_mod_config_value_changed)
+	
+	_modConfig = config
+	config.ConfigValueChanged.connect(_on_mod_config_value_changed)
+	_InvalidateFormattedMessages()
 
 func MinimizeWindow():
 	ChangeExpandedState(false)
@@ -130,6 +165,7 @@ func ResetWindow(isExpanded = null, isVisible = null, newRect = null):
 
 func ClearWindow():
 	DisplayTextBox.clear()
+	_logs.clear()
 
 func MoveWindow(newPos: Vector2):
 	if (position.is_equal_approx(newPos)):
@@ -149,6 +185,100 @@ func UpdateWindow(newPos: Vector2, newSize: Vector2):
 
 func UpdateWindowRect(newRect: Rect2):
 	UpdateWindow(newRect.position, newRect.size)
+
+# Known issue: If the log is below level, it isn't added to the list of logs.
+#	If the log level is then changed to be above that log, the "missing" logs won't appear
+func AddLog(msgData: Dictionary):
+	if (msgData["level"] < _logLevel):
+		return
+
+	_logs.append(msgData)
+	PostLog(msgData)
+
+	_ManageLogCount()
+
+func PostLog(msgData: Dictionary, applyFilter = true):
+	msgData["formattedMsg"] = _FormatMessage(msgData)
+	if (applyFilter):
+		var filteredMsg = _FilterMessage(msgData["formattedMsg"], FilterEdit.text)
+		if (filteredMsg != null):
+			DisplayTextBox.append_text(filteredMsg)
+	else:
+		DisplayTextBox.append_text(msgData["formattedMsg"])
+
+func _FormatMessage(msgData: Dictionary) -> String:
+	if (msgData["formattedMsg"] != null):
+		return msgData["formattedMsg"]
+
+	if (msgData["level"] < 2):
+		msgData["formattedMsg"] = _FormatLogMessage(msgData)
+	else:
+		msgData["formattedMsg"] = _FormatErrorMessage(msgData)
+
+	return msgData["formattedMsg"]
+
+func _FormatLogMessage(msgData: Dictionary) -> String:
+	var msg = msgData["raw"]
+	var level = msgData["level"]
+	var color = _GetColorForLevel(level).to_html()
+
+	var shouldColorEntireMessage = _modConfig.GetConfigValueOrDefault("colorEntireMessage")
+	if (shouldColorEntireMessage):
+		msg = "[color=%s]%s[/color]" % [color, msg]
+	else:
+		msg = msg.replace("[%s]" % [msgData["levelName"]], "[color=%s][b][%s][/b][/color]" % [color, msgData["levelName"]])
+
+	return msg
+
+func _FormatErrorMessage(msgData: Dictionary) -> String:
+	var errData = msgData["errData"]
+	var msg = ""
+	var color = (
+			_modConfig.GetConfigValueOrDefault("defaultColorWarning") if errData["errorType"] == Logger.ERROR_TYPE_WARNING
+			else _modConfig.GetConfigValueOrDefault("defaultColorError")
+		).to_html()
+
+	if (errData["existingPrefix"] != ""):
+		msg = "[color=%s]%s %s[/color]\n[color=#999]%s[/color]\n[color=#999]%s[/color][code]" % [
+			color,
+			errData["existingPrefix"],
+			errData["rationale"],
+			errData["trace"],
+			errData["scriptBacktracesText"]
+		]
+	else:
+		msg = "[code][color=%s]%s %s %s[/color]\n[color=#999]%s[/color]\n[color=#999]%s[/color][code]" % [
+			color,
+			errData["generatedPrefix"],
+			errData["code"],
+			errData["rationale"],
+			errData["trace"],
+			errData["scriptBacktracesText"]
+		]
+
+	return msg
+
+func _GetColorForLevel(level: int) -> Color:
+	match level:
+		0:
+			return _modConfig.GetConfigValueOrDefault("defaultColorDebug")
+		1:
+			return _modConfig.GetConfigValueOrDefault("defaultColorInfo")
+		2:
+			return _modConfig.GetConfigValueOrDefault("defaultColorWarning")
+		3:
+			return _modConfig.GetConfigValueOrDefault("defaultColorError")
+	
+	return Color("white")
+
+func _InvalidateFormattedMessages():
+	for msg in _logs:
+		msg["formattedMsg"] = null
+
+func _RepostAllMessages():
+	for el in _logs:
+		PostLog(el, false) # we want to batch apply filtering
+	_ApplyFilterToLogs(FilterEdit.text, _logs)
 
 func _HandleMoveViaMouse():
 	if (!_isExpanded): # reveal if moved while minimized
@@ -170,37 +300,94 @@ func _HandleResize():
 
 	ResizeWindow(newSize)
 
-func AddLog(newText: String, level: String = "DEBUG"):
-	if (!MeetsLogLevel(level)):
-		return
-
-	_logs.append(newText)
-	DisplayTextBox.append_text(newText)
-
-	_ManageLogCount()
-	
 func _ManageLogCount():
 	var count = _logs.size()
 	if (count > _maxLogs):
 		var excess = count - _maxLogs
 		_logs = _logs.slice(excess, count)
-		DisplayTextBox.clear()
 
-		for el in _logs:
+		DisplayTextBox.clear()
+		_RepostAllMessages()
+
+func _ApplyFilterToLogs(filterText: String, logs = null):
+	var matches: Array[String] = []
+	var regex = RegEx.create_from_string(r"(?i)(%s)" % DbgUtils.EscapeRegex(filterText))
+	var highlightColor = _modConfig.GetConfigValueOrDefault("filterHighlightColor").to_html()
+	var textColor = _modConfig.GetConfigValueOrDefault("filterTextColor").to_html()
+
+	var shouldHighlight = _modConfig.GetConfigValueOrDefault("filterHighlightEnabled")
+	var shouldRemoveNonMatches = _modConfig.GetConfigValueOrDefault("filterRemoveNonMatches")
+
+	if (logs == null):
+		logs = _logs
+
+	if (filterText.length() < 2):
+		var newLogs = logs.duplicate_deep()
+		for i in range(newLogs.size()): # Select the text of each log
+			matches.append(newLogs[i]["formattedMsg"])
+	else:
+		if (!shouldHighlight and !shouldRemoveNonMatches):
+			return # no need to filter if we're not highlighting or removing non-matches
+
+		for el in logs:
+			var elMatches = regex.search_all(el["formattedMsg"])
+
+			if (!shouldHighlight && elMatches.size() > 0): # match, not highlighting
+				matches.append(el["formattedMsg"])
+			elif (!shouldRemoveNonMatches and elMatches.size() == 0): # unknown match, not removing non-matches
+				matches.append(el["formattedMsg"])
+			elif (elMatches.size() > 0): # match, highlighting and removing non-matches
+				var newStr = regex.sub(el["formattedMsg"], "[color=%s][bgcolor=%s]$0[/bgcolor][/color]" % [textColor, highlightColor], true)
+				matches.append(newStr)
+	
+	DisplayTextBox.clear()
+
+	if (matches.size() == 0):
+		DisplayTextBox.append_text("[color=#999]\"%s\" was not found in any log messages[/color]" % filterText)
+	else:
+		for el in matches:
 			DisplayTextBox.append_text(el)
 
-func MeetsLogLevel(level: String) -> bool:
-	match _logLevel:
-		"DEBUG":
-			return true
-		"INFO":
-			return level != "DEBUG"
-		"WARNING":
-			return level != "DEBUG" and level != "INFO"
-		"ERROR":
-			return level == "ERROR"
-		_:
-			return false
+## Returns String | null (if the msg didn't match the filter and should be removed)
+func _FilterMessage(msg: String, filterText: String) -> Variant:
+	if (filterText.length() < 2):
+		return msg
+
+	var regex = RegEx.create_from_string(r"(?i)(%s)" % DbgUtils.EscapeRegex(filterText))
+	var matches = regex.search_all(msg)
+
+	if (matches.size() == 0):
+		return null
+
+	var highlightColor = _modConfig.GetConfigValueOrDefault("filterHighlightColor").to_html()
+	var textColor = _modConfig.GetConfigValueOrDefault("filterTextColor").to_html()
+
+	if (_modConfig.GetConfigValueOrDefault("filterHighlightEnabled")):
+		msg = regex.sub(msg, "[color=%s][bgcolor=%s]$0[/bgcolor][/color]" % [textColor, highlightColor], true)
+
+	if (msg == ""):
+		return null
+
+	return msg
+
+func _on_mod_config_value_changed(key: String, _value: Variant):
+	const COLOR_SETTING_KEYS = [
+		"colorEntireMessage",
+		"defaultColorDebug",
+		"defaultColorInfo",
+		"defaultColorWarning",
+		"defaultColorError",
+		"filterHighlightEnabled",
+		"filterRemoveNonMatches",
+		"filterHighlightColor",
+		"filterTextColor"
+	]
+
+	if (key in COLOR_SETTING_KEYS):
+		_InvalidateFormattedMessages()
+		DisplayTextBox.clear()
+		_RepostAllMessages()
+		_ApplyFilterToLogs(FilterEdit.text) # re-apply filter
 
 func _on_mouse_btn_released():
 	_mouseIsDraggingWindow = false
@@ -256,6 +443,9 @@ func _on_resize_handle_gui_input(event: InputEvent) -> void:
 				_mouseIsResizingWindow = true
 			else:
 				_on_mouse_btn_released()
+
+func _on_filter_edit_text_changed(filterText: String) -> void:
+	_ApplyFilterToLogs(filterText)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if (event is InputEventMouseButton):

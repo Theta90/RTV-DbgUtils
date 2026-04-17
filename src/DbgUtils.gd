@@ -21,9 +21,27 @@ var _toggleDebugUIKeyPressed: bool = false
 var _mouseIsForceConfined: bool = false # cannot be true while the below is true
 var _mouseIsForceCaptured: bool = false # cannot be true while the above is true
 
-var _configSettings = ModConfig.DEFAULT_CONFIG_SETTINGS.duplicate()
-
-var _logs: Array[String] = []
+## type MsgData = {
+## 	raw: `String`,
+## 	levelName: `String`,
+## 	levelInt: `int`,
+## 	levelPos: `Array[int, int]`,
+##	formattedMsg: `String` | `null`,
+##  errData?: {
+##		function: `String`,
+##		file: `String`,
+##		line: `int`,
+##		code: `String`,
+##		rationale: `String`,
+##		errorType: `int`,
+##		errorName: `String`,
+##		existingPrefix: `String`,
+##		generatedPrefix: `String`,
+##		trace: `String`,
+##		backtrace: `String` # "[color=#999]%s[/color]" % [script_backtraces_text]
+##	}
+## }
+var _logs: Array[Dictionary] = []
 
 func _ready() -> void:
 	var isFirstInstance: bool = false
@@ -48,10 +66,8 @@ func _ready() -> void:
 	if (isFirstInstance):
 		_logger = CustomLogger.new(self )
 
-		dbg = Dbg.new("DbgUtils", self , null)
-
 		_modConfig = ModConfig.new()
-		_modConfig.connect("ConfigValueChanged", _onConfigValueChanged)
+		_modConfig.ConfigValueChanged.connect(_onConfigValueChanged)
 
 		var root = get_node("/root")
 		root.connect("child_entered_tree", _onRootChildrenChanged)
@@ -60,7 +76,16 @@ func _ready() -> void:
 		add_child(_customLoggerUI)
 		add_child(_modConfig)
 
-		_customLoggerUI.CreateMenu(_configSettings)
+		_customLoggerUI.CreateMenu(_modConfig)
+
+		#var connectErr = _modConfig.connectionError
+		#if (connectErr != Error.OK):
+		#	dbg.error("DbgUtils failed to connect to MCM with the error: %s" % [error_string(connectErr)])
+		#else:
+		#	if (_modConfig.isFirstUse):
+		#		var path = "%s/%s" % [_modConfig.FILE_PATH, _modConfig.FILE_NAME]
+		#		dbg.info("Thanks for using DbgUtils! A config file has been created at %s. " % [path] +
+		#			"These settings can be changed via MCM (if installed). Enjoy!!")
 
 		dbg.info("DbgUtils initialized, [wave][rainbow]have a nice day![/rainbow][/wave]")
 	else:
@@ -68,7 +93,7 @@ func _ready() -> void:
 		_logger = _autoload._logger
 		_modConfig = _autoload._modConfig
 		_customLoggerUI = _autoload._customLoggerUI
-		_configSettings = _autoload._configSettings
+		_modConfig = _autoload._modConfig
 
 	get_tree().scene_changed.connect(_on_scene_changed)
 
@@ -76,9 +101,29 @@ func _ready() -> void:
 
 	dbg.debug("%s is now attached to DbgUtils" % dbg._modId)
 
-func _AddLog(msg: String, level: String = "DEBUG"):
-	_logs.append(msg)
-	_customLoggerUI.AddLog(msg, level)
+static func EscapeRegex(text: String) -> String:
+	return (text
+		.replace("\\", "\\\\")
+		.replace(".", "\\.")
+		.replace("+", "\\+")
+		.replace("*", "\\*")
+		.replace("?", "\\?")
+		.replace("^", "\\^")
+		.replace("$", "\\$")
+		.replace("(", "\\(")
+		.replace(")", "\\)")
+		.replace("[", "\\[")
+		.replace("]", "\\]")
+		.replace("{", "\\{")
+		.replace("}", "\\}")
+		.replace("|", "\\|")
+		.replace("-", "\\-")
+		.replace("/", "\\/")
+	)
+
+func _AddLog(msgData: Dictionary):
+	_logs.append(msgData)
+	_customLoggerUI.AddLog(msgData)
 
 	if (_logs.size() > 1000):
 		const numLogsToRemove = 500
@@ -101,32 +146,10 @@ func _ConfineMouse():
 	_mouseIsForceConfined = true
 	_mouseIsForceCaptured = false
 
-## Called by the root from signals "child_entered_tree" and "child_exited_tree"
-func _onRootChildrenChanged(_child: Node) -> void:
-	var mainMenu = get_node_or_null("/root/Menu")
-	_isInMainMenu = mainMenu != null
-
-	if (!_isInMainMenu):
-		return
-
-	# if we just entered the menu
-	if (!_isInMainMenu):
-		_customLoggerUI.ToggleVisibility(_configSettings["openOnMenu"])
-
-		if (_configSettings["openOnMenu"]):
-			_customLoggerUI.ForEach(func(menu): menu._ApplyRectToWindow(menu.MENU_RECT))
-	
-	_isInMainMenu = true
-
-func _onConfigValueChanged(configKey: String, newValue: Variant) -> void:
-	#dbg.debug("Received ConfigValueChanged signal with key '%s' and value '%s'" % [configKey, newValue])
-	_configSettings[configKey] = newValue
-	
 func _Tour():
 	dbg.settings.includeTime = false
 	dbg.settings.includeFileSource = false
 	dbg.settings.includeLine = false
-	_modConfig.SetLocalConfigValue("colorEntireLine", false)
 
 	dbg.debug("This is a debug message!")
 	dbg.info("This is an info message!")
@@ -138,10 +161,6 @@ func _Tour():
 	dbg.info("Include timestamps and dates")
 	dbg.settings.includeTime = false
 	dbg.settings.includeDate = false
-
-	_modConfig.SetLocalConfigValue("colorEntireLine", true)
-	dbg.info("Change an entire line's color based on it's level (customizable via MCM). This one is %s!" % _configSettings["defaultColorInfo"])
-	_modConfig.SetLocalConfigValue("colorEntireLine", false)
 
 	dbg.settings.includeFileSource = true
 	dbg.settings.includeLine = true
@@ -155,8 +174,31 @@ func _Tour():
 	dbg.settings.includeFileSource = false
 	dbg.settings.includeLine = false
 
-	dbg.error("Any BBCode is supported, go [rainbow sat=0.5 speed=0.1][tornado radius=10]🌪crazy🌪[/tornado][/rainbow]!!")
+	dbg.debug("Any BBCode is supported, go [rainbow sat=0.5 speed=0.1][tornado radius=10]🌪crazy🌪[/tornado][/rainbow]!!")
 
+## Called by the root from signals "child_entered_tree" and "child_exited_tree"
+func _onRootChildrenChanged(_child: Node) -> void:
+	var mainMenu = get_node_or_null("/root/Menu")
+	_isInMainMenu = mainMenu != null
+
+	if (!_isInMainMenu):
+		return
+
+	# if we just entered the menu
+	if (!_isInMainMenu):
+		var openOnMenu = _modConfig.GetConfigValue("openOnMenu")
+		_customLoggerUI.ToggleVisibility(openOnMenu)
+
+		if (openOnMenu):
+			_customLoggerUI.ForEach(func(menu): menu._ApplyRectToWindow(menu.MENU_RECT))
+	
+	_isInMainMenu = true
+
+func _onConfigValueChanged(_configKey: String, _newValue: Variant) -> void:
+	#dbg.debug("Received ConfigValueChanged signal with key '%s' and value '%s'" % [configKey, newValue])
+	#_configSettings[configKey] = newValue
+	pass
+	
 func _on_toggle_mouse_mode_key_pressed():
 	if (_isInMainMenu):
 		_ConfineMouse()
@@ -178,7 +220,7 @@ func _on_scene_changed() -> void:
 	if (mainMenu != null):
 		_isInMainMenu = true
 
-		if (_configSettings["openOnMenu"]):
+		if (_modConfig.GetConfigValue("openOnMenu")):
 			_customLoggerUI.ToggleVisibility(true)
 	else:
 		_isInMainMenu = false
@@ -189,7 +231,7 @@ func _notification(what: int) -> void:
 
 func _input(event: InputEvent) -> void:
 	if (event is InputEventKey):
-		if (event.keycode == _configSettings["toggleDebugUIKey"]):
+		if (event.keycode == _modConfig.GetConfigValue("toggleDebugUIKey")):
 			if (_toggleDebugUIKeyPressed and event.is_pressed()):
 				return # prevent holding
 			elif (not event.is_pressed()):
@@ -216,12 +258,12 @@ func _input(event: InputEvent) -> void:
 				elif (curMode == Input.MouseMode.MOUSE_MODE_CONFINED):
 					_CaptureMouse()
 	
-		elif (event.keycode == _configSettings["toggleMouseKey"]):
+		elif (event.keycode == _modConfig.GetConfigValue("toggleMouseKey")):
 			if (event.is_pressed()):
 				_on_toggle_mouse_mode_key_pressed()
 
-		#elif (event.keycode == Key.KEY_MINUS and event.is_pressed()):
-		#	_Tour()
+		elif (event.keycode == Key.KEY_MINUS and event.is_pressed()):
+			_Tour()
 
 #region CustomLogger
 
@@ -236,46 +278,29 @@ class CustomLogger extends Logger:
 			if (!_dbgUtils or !_dbgUtils.is_node_ready()):
 				return
 
-			#var regEx = RegEx.create_from_string("(?i)\\[(debug|info|warning|error)\\]")
-			#message = regEx.sub(message, "[$1]".to_upper(), false) # replace first instace of the [level] w/<level>.to_upper()
+			var msgData = {
+				"raw": "",
+				"level": 0,
+				"levelName": "DEBUG",
+				"formattedMsg": null
+			}
+			
+			# Get the log level from the very start of the msg, choosing the closest to the beginning
+			var dbgIndex = message.findn("[debug]")
+			var infoIndex = message.findn("[info]")
 
-			# Replace all instances of [level] with [LEVEL] (case-insensitive)
-			var levels = ["DEBUG", "INFO", "WARNING", "ERROR"]
-			for level in levels:
-				var regEx = RegEx.create_from_string("(?i)\\[%s\\]" % level)
-				message = regEx.sub(message, "[%s]" % level, false)
+			if (dbgIndex != -1 and (dbgIndex < infoIndex or infoIndex == -1)):
+				message = RegEx.create_from_string("(?i)\\[debug\\]").sub(message, "[DEBUG]", false)
+				msgData["levelPos"] = [dbgIndex, dbgIndex + 7] # 7 = length of "[debug]"
+			elif (infoIndex != -1 and (infoIndex < dbgIndex or dbgIndex == -1)):
+				message = RegEx.create_from_string("(?i)\\[info\\]").sub(message, "[INFO]", false)
+				msgData["level"] = 1
+				msgData["levelName"] = "INFO"
+				msgData["levelPos"] = [infoIndex, infoIndex + 6] # 6 = length of "[info]"
 
-			var level: String = (
-				"DEBUG" if message.find("[DEBUG]") != -1
-				else "INFO" if message.find("[INFO]") != -1
-				else "WARNING" if message.find("[WARNING]") != -1
-				else "ERROR" if message.find("[ERROR]") != -1
-				else "DEBUG"
-			)
+			msgData["raw"] = message
 
-			match level:
-				"DEBUG":
-					if (_dbgUtils._configSettings["colorEntireLine"]):
-						message = "[color=%s]%s[/color]" % [_dbgUtils._configSettings["defaultColorDebug"].to_html(), message]
-					else:
-						message = message.replace("[DEBUG]", "[color=%s][b][DEBUG][/b][/color]" % _dbgUtils._configSettings["defaultColorDebug"].to_html())
-				"INFO":
-					if (_dbgUtils._configSettings["colorEntireLine"]):
-						message = "[color=%s]%s[/color]" % [_dbgUtils._configSettings["defaultColorInfo"].to_html(), message]
-					else:
-						message = message.replace("[INFO]", "[color=%s][b][INFO][/b][/color]" % _dbgUtils._configSettings["defaultColorInfo"].to_html())
-				"WARNING":
-					if (_dbgUtils._configSettings["colorEntireLine"]):
-						message = "[color=%s]%s[/color]" % [_dbgUtils._configSettings["defaultColorWarning"].to_html(), message]
-					else:
-						message = message.replace("[WARNING]", "[color=%s][b][WARNING][/b][/color]" % _dbgUtils._configSettings["defaultColorWarning"].to_html())
-				"ERROR":
-					if (_dbgUtils._configSettings["colorEntireLine"]):
-						message = "[color=%s]%s[/color]" % [_dbgUtils._configSettings["defaultColorError"].to_html(), message]
-					else:
-						message = message.replace("[ERROR]", "[color=%s][b][ERROR][/b][/color]" % _dbgUtils._configSettings["defaultColorError"].to_html())
-				
-			_dbgUtils._AddLog.call_deferred(message, level)
+			_dbgUtils._AddLog.call_deferred(msgData)
 			
 		func _log_error(
 				function: String,
@@ -290,86 +315,88 @@ class CustomLogger extends Logger:
 			if (!_dbgUtils or !_dbgUtils.is_node_ready()):
 				return
 
-			var prefix: String = ""
-			var hasPrefix: bool = false
+			var errData = {
+				"function": function,
+				"file": file,
+				"line": line,
+				"code": code,
+				"rationale": rationale,
+				"errorType": error_type,
+				"errorName": "",
+				"existingPrefix": "",
+				"generatedPrefix": "",
+				"trace": "",
+				"scriptBacktracesText": "" # "[color=#999]%s[/color]" % [script_backtraces_text]
+			}
 
-			# The column at which to print the trace. Should match the length of the
-			# unformatted text above it.
-			var trace_indent := 0
+			var msgData = {
+				"raw": "",
+				"level": - 1,
+				"levelName": "",
+				"formattedMsg": null,
+				"errData": errData
+			}
 
-			var levels = ["WARNING", "ERROR"]
-			var tgtLevel = "ERROR" if error_type == ERROR_TYPE_ERROR else "WARNING"
-
-			for level in levels:
+			for level in ["WARNING", "ERROR"]:
 				var regEx = RegEx.create_from_string("(?i)\\[%s\\]" % level)
 
 				if (level == "ERROR"):
 					var hasMatch = regEx.search(code) != null
 					if (hasMatch):
-						var realError = (
+						errData["errorName"] = (
 							"ERROR" if error_type == ERROR_TYPE_ERROR
 							else "SCRIPT ERROR" if error_type == ERROR_TYPE_SCRIPT
 							else "SHADER ERROR" if error_type == ERROR_TYPE_SHADER
 							else "ERROR"
 						)
-						hasPrefix = true
-						prefix = regEx.sub(code, "[b][%s][/b]" % [realError], false)
+						msgData["level"] = 3
+						msgData["levelName"] = "ERROR"
+						errData["existingPrefix"] = regEx.sub(code, "[%s]" % [errData["errorName"]], false)
 						break # meh
 				else:
 					if (regEx.search(code) != null):
-						hasPrefix = true
-						prefix = regEx.sub(code, "[b][%s][/b]" % [level], false)
+						msgData["level"] = 2
+						msgData["levelName"] = "WARNING"
+						errData["errorName"] = "WARNING"
+						errData["existingPrefix"] = regEx.sub(code, "[%s]" % [errData["errorName"]], false)
 						break
+						
+			# The column at which to print the trace. Should match the length of the
+			# unformatted text above it.
+			var trace_indent := 0
 			
 			match error_type:
 				ERROR_TYPE_ERROR:
 					trace_indent = 6
-					if (!hasPrefix):
-						prefix = "[color=%s][b]ERROR:[/b]" % [_dbgUtils._configSettings["defaultColorError"].to_html()]
+					if (errData["existingPrefix"] == ""):
+						msgData["level"] = 3
+						msgData["levelName"] = "ERROR"
+						errData["generatedPrefix"] = "ERROR:"
 				ERROR_TYPE_WARNING:
 					trace_indent = 8
-					if (!hasPrefix):
-						prefix = "[color=%s][b]WARNING:[/b]" % [_dbgUtils._configSettings["defaultColorWarning"].to_html()]
+					if (errData["existingPrefix"] == ""):
+						msgData["level"] = 2
+						msgData["levelName"] = "WARNING"
+						errData["generatedPrefix"] = "WARNING:"
 				ERROR_TYPE_SCRIPT:
 					trace_indent = 13
-					if (!hasPrefix):
-						prefix = "[color=%s][b]SCRIPT ERROR:[/b]" % [_dbgUtils._configSettings["defaultColorError"].to_html()]
+					if (errData["existingPrefix"] == ""):
+						msgData["level"] = 3
+						msgData["levelName"] = "ERROR"
+						errData["generatedPrefix"] = "SCRIPT ERROR:"
 				ERROR_TYPE_SHADER:
 					trace_indent = 13
-					if (!hasPrefix):
-						prefix = "[color=%s][b]SHADER ERROR:[/b]" % [_dbgUtils._configSettings["defaultColorError"].to_html()]
+					if (errData["existingPrefix"] == ""):
+						msgData["level"] = 3
+						msgData["levelName"] = "ERROR"
+						errData["generatedPrefix"] = "SHADER ERROR:"
 				
-			var trace: String = "%*s %s (%s:%s)" % [trace_indent, "at:", function, file, line]
-			var script_backtraces_text: String = ""
+			errData["trace"] = "%*s %s (%s:%s)" % [trace_indent, "at:", function, file, line]
 
 			for backtrace in script_backtraces:
-				script_backtraces_text += backtrace.format(trace_indent - 3) + "\n"
-			
-			var msg = ""
+				errData["scriptBacktracesText"] += backtrace.format(trace_indent - 3) + "\n"
 
-			if (hasPrefix):
-				var color = (
-					_dbgUtils._configSettings["defaultColorWarning"] if error_type == ERROR_TYPE_WARNING
-					else _dbgUtils._configSettings["defaultColorError"]
-				).to_html()
-				msg = "[color=%s]%s %s[/color]\n[color=#999]%s[/color]\n[color=#999]%s[/color][code]" % [
-					color,
-					prefix,
-					rationale,
-					trace,
-					script_backtraces_text
-				]
-			else:
-				msg = "[code]%s %s %s[/color]\n[color=#999]%s[/color]\n[color=#999]%s[/color][code]" % [
-					prefix,
-					code,
-					rationale,
-					trace,
-					script_backtraces_text,
-				]
-			
-			#_dbgUtils._AddLog.call_deferred("Prefix:%s\nCode: %s" % [prefix, code], "WARNING" if error_type == ERROR_TYPE_WARNING else "ERROR")
-			_dbgUtils._AddLog.call_deferred(msg, tgtLevel)
+			_dbgUtils._AddLog.call_deferred(msgData) # todo
 
 		func _notification(what: int) -> void:
 			if (what == NOTIFICATION_PREDELETE):
