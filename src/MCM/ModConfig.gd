@@ -30,8 +30,9 @@ const FILE_PATH := "user://MCM/DbgUtils"
 const FILE_NAME := "config.ini"
 
 const gameData := preload("res://Resources/GameData.tres")
-const MCM := preload("res://ModConfigurationMenu/Scripts/Doink Oink/MCM_Helpers.tres")
 const MCMNotInstalledUI := preload("res://mods/DbgUtils/MCM/mcm_not_installed.tscn")
+
+var MCM := load("res://ModConfigurationMenu/Scripts/Doink Oink/MCM_Helpers.tres")
 
 var _localConfig: Dictionary[String, Array] = {
 
