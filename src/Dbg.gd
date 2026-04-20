@@ -46,7 +46,6 @@ func log(
 	level = level.to_upper()
 
 	if (level not in ["DEBUG", "INFO", "WARNING", "ERROR"]):
-		push_error("DbgUtils: Dbg.log() for %s tried to use an invalid log level '%s'. Defaulting to 'DEBUG'." % [_modId, level])
 		level = "DEBUG"
 	
 	_send_message(msg, stack, level)

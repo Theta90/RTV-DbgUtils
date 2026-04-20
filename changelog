@@ -1,3 +1,13 @@
+Version 1.2.1
+
+- Performance improvements, especially with a large number of log entries.
+- Improved reliability of cursor detaching and reattaching. It should now be much less likely to get stuck in an attached state, and should also be more responsive when detaching.
+- Added a "follow" toggle for the logger, which will automatically scroll to the most recent log entry when new entries are added.
+
+Known Issues:
+
+- Performance still! I tried a few different methods for improving this, but it is still not where I would like it to be. RichTextLabels are just not very efficient when it comes to updating their content, and the search filter requires a lot of updates to the log entries. Since I just don't have the time to delve deeper, I've imposed a log limit.
+
 Version 1.2.0
 
 - Implemented a new search filter for the logger, with optional highlighting and removal of non-matching entries.

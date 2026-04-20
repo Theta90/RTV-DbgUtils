@@ -23,10 +23,8 @@ var _mouseIsForceCaptured: bool = false # cannot be true while the above is true
 
 ## type MsgData = {
 ## 	raw: `String`,
+## 	level: `int`,
 ## 	levelName: `String`,
-## 	levelInt: `int`,
-## 	levelPos: `Array[int, int]`,
-##	formattedMsg: `String` | `null`,
 ##  errData?: {
 ##		function: `String`,
 ##		file: `String`,
@@ -78,15 +76,6 @@ func _ready() -> void:
 
 		_customLoggerUI.CreateMenu(_modConfig)
 
-		#var connectErr = _modConfig.connectionError
-		#if (connectErr != Error.OK):
-		#	dbg.error("DbgUtils failed to connect to MCM with the error: %s" % [error_string(connectErr)])
-		#else:
-		#	if (_modConfig.isFirstUse):
-		#		var path = "%s/%s" % [_modConfig.FILE_PATH, _modConfig.FILE_NAME]
-		#		dbg.info("Thanks for using DbgUtils! A config file has been created at %s. " % [path] +
-		#			"These settings can be changed via MCM (if installed). Enjoy!!")
-
 		dbg.info("DbgUtils initialized, [wave][rainbow]have a nice day![/rainbow][/wave]")
 	else:
 		dbg = _autoload.dbg
@@ -131,17 +120,11 @@ func _AddLog(msgData: Dictionary):
 		dbg.warning("DbgUtils log count exceeded 1000. %s old logs have been cleared to prevent memory issues." % numLogsToRemove)
 
 func _CaptureMouse():
-	if (Input.mouse_mode == Input.MouseMode.MOUSE_MODE_CAPTURED):
-		return
-	
 	Input.mouse_mode = Input.MouseMode.MOUSE_MODE_CAPTURED
 	_mouseIsForceCaptured = true
 	_mouseIsForceConfined = false
 
 func _ConfineMouse():
-	if (Input.mouse_mode == Input.MouseMode.MOUSE_MODE_CONFINED):
-		return
-
 	Input.mouse_mode = Input.MouseMode.MOUSE_MODE_CONFINED
 	_mouseIsForceConfined = true
 	_mouseIsForceCaptured = false
@@ -179,8 +162,14 @@ func _Tour():
 ## Called by the root from signals "child_entered_tree" and "child_exited_tree"
 func _onRootChildrenChanged(_child: Node) -> void:
 	var mainMenu = get_node_or_null("/root/Menu")
-	_isInMainMenu = mainMenu != null
 
+	# If left main menu
+	if (_isInMainMenu and mainMenu == null):
+		_isInMainMenu = false
+		if (_customLoggerUI.HasAnyVisibleMenus()):
+			_ConfineMouse()
+
+	_isInMainMenu = mainMenu != null
 	if (!_isInMainMenu):
 		return
 
@@ -203,16 +192,11 @@ func _on_toggle_mouse_mode_key_pressed():
 	if (_isInMainMenu):
 		_ConfineMouse()
 	else:
-		if (_mouseIsForceCaptured):
+		var curMode = Input.mouse_mode
+		if (curMode == Input.MouseMode.MOUSE_MODE_CAPTURED):
 			_ConfineMouse()
-		elif (_mouseIsForceConfined):
+		elif (curMode == Input.MouseMode.MOUSE_MODE_CONFINED):
 			_CaptureMouse()
-		else:
-			var curMode = Input.mouse_mode
-			if (curMode == Input.MouseMode.MOUSE_MODE_CAPTURED):
-				_ConfineMouse()
-			elif (curMode == Input.MouseMode.MOUSE_MODE_CONFINED):
-				_CaptureMouse()
 
 func _on_scene_changed() -> void:
 	# if we just entered the menu
@@ -224,6 +208,11 @@ func _on_scene_changed() -> void:
 			_customLoggerUI.ToggleVisibility(true)
 	else:
 		_isInMainMenu = false
+
+	if (_customLoggerUI.HasAnyVisibleMenus()):
+		_ConfineMouse()
+	else:
+		_CaptureMouse()
 
 func _notification(what: int) -> void:
 	if (what == NOTIFICATION_PREDELETE):
@@ -247,6 +236,10 @@ func _input(event: InputEvent) -> void:
 
 			if (_isInMainMenu):
 				_ConfineMouse()
+			elif (!hasVisibleMenus):
+				_mouseIsForceCaptured = false
+				_mouseIsForceConfined = false
+				Input.mouse_mode = Input.MouseMode.MOUSE_MODE_CAPTURED
 			elif (_mouseIsForceCaptured):
 				_CaptureMouse()
 			elif (_mouseIsForceConfined):
@@ -262,8 +255,9 @@ func _input(event: InputEvent) -> void:
 			if (event.is_pressed()):
 				_on_toggle_mouse_mode_key_pressed()
 
-		elif (event.keycode == Key.KEY_MINUS and event.is_pressed()):
-			_Tour()
+		#elif (event.keycode == Key.KEY_MINUS and event.is_pressed()):
+		#	if (OS.is_debug_build()):
+		#		_Tour()
 
 #region CustomLogger
 
@@ -282,7 +276,6 @@ class CustomLogger extends Logger:
 				"raw": "",
 				"level": 0,
 				"levelName": "DEBUG",
-				"formattedMsg": null
 			}
 			
 			# Get the log level from the very start of the msg, choosing the closest to the beginning
@@ -291,12 +284,10 @@ class CustomLogger extends Logger:
 
 			if (dbgIndex != -1 and (dbgIndex < infoIndex or infoIndex == -1)):
 				message = RegEx.create_from_string("(?i)\\[debug\\]").sub(message, "[DEBUG]", false)
-				msgData["levelPos"] = [dbgIndex, dbgIndex + 7] # 7 = length of "[debug]"
 			elif (infoIndex != -1 and (infoIndex < dbgIndex or dbgIndex == -1)):
 				message = RegEx.create_from_string("(?i)\\[info\\]").sub(message, "[INFO]", false)
 				msgData["level"] = 1
 				msgData["levelName"] = "INFO"
-				msgData["levelPos"] = [infoIndex, infoIndex + 6] # 6 = length of "[info]"
 
 			msgData["raw"] = message
 
@@ -333,7 +324,6 @@ class CustomLogger extends Logger:
 				"raw": "",
 				"level": - 1,
 				"levelName": "",
-				"formattedMsg": null,
 				"errData": errData
 			}
 
