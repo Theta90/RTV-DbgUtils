@@ -1,14 +1,10 @@
 @tool
 extends PanelContainer
 
-signal VisibilityChanged(isVisible: bool)
-signal ExpandedChanged(isExpanded: bool)
-signal Moved(newPosition: Vector2)
-signal Resized(newSize: Vector2)
-
 @export var DisplayTextBox: RichTextLabel
 @export var WindowContent: PanelContainer
 @export var HeaderBar: PanelContainer
+@export var HeaderButtonPanel: PanelContainer
 @export var ResizeHandle: TextureRect
 @export var FilterEdit: LineEdit
 
@@ -23,9 +19,10 @@ const DEFAULT_RECT := Rect2(Vector2(0, 0), Vector2(400, 200))
 const MINIMIZED_RECT := Rect2(Vector2(0, 0), Vector2(128, 30))
 const DEFAULT_TEXT_BACKGROUND_COLOR := Color("#00000099")
 
+const MAX_LOGS: int = 100
+
 var _modConfig: ModConfig = null
 
-var _maxLogs: int = 500 # todo: make configurable in this window
 var _logLevel: int = 0 # todo: make configurable in this window
 
 var _preMinimizeRect := Rect2()
@@ -38,16 +35,20 @@ var _mouseIsResizingWindow: bool = false
 var _mouseDownPosition: Vector2 = Vector2.ZERO # Where the mouse was when it clicked the HeaderBar
 var _mouseLeftButtonPressed: bool = false
 
-var _resizeCooldownMsec: int = 50
-var _lastResizeMsec = 999999
+var _resizeCooldownMsec: int = 10
+var _lastResizeMsec = 0
+
+# Try to batch process updates
+var _refreshCooldownMsec: int = 10
+var _lastRefreshMsec = 0
+var _refreshQueued: bool = false
 
 # Yes, this is ugly :(
 ## type MsgData = {
 ## 	raw: `String`,
+## 	level: `int`,
 ## 	levelName: `String`,
-## 	levelInt: `int`,
-## 	levelPos: `Array[int, int]`,
-##	formattedMsg: `String` | `null`,
+## 	formattedText: `String`, # the text after being formatted with color tags and such, but before filtering
 ##  errData?: {
 ##		function: `String`,
 ##		file: `String`,
@@ -85,13 +86,21 @@ func _ready() -> void:
 	img.load_png_from_buffer(imgBuffer)
 	ResizeHandle.texture = ImageTexture.create_from_image(img)
 
-	DisplayTextBox.clear()
+	DisplayTextBox.text = ""
+	
+	_lastResizeMsec = Time.get_ticks_msec() - _lastResizeMsec
+	_lastRefreshMsec = Time.get_ticks_msec() - _lastRefreshMsec
 
 	ResetWindow(true, true, MENU_RECT)
 
 	_preMinimizeRect = get_rect()
 
-	_lastResizeMsec = Time.get_ticks_msec()
+	var inputEvent = InputEventKey.new()
+	inputEvent.keycode = KEY_EQUAL
+	inputEvent.key_label = KEY_EQUAL
+	inputEvent.physical_keycode = KEY_EQUAL
+	InputMap.add_action("print_multiline_text")
+	InputMap.action_add_event("print_multiline_text", inputEvent)
 	
 func _physics_process(_delta: float) -> void:
 	if (_mouseIsDraggingWindow):
@@ -100,6 +109,12 @@ func _physics_process(_delta: float) -> void:
 	if (_mouseIsResizingWindow):
 		_HandleResize()
 
+	if (_refreshQueued):
+		if (_refreshCooldownMsec - (Time.get_ticks_msec() - _lastRefreshMsec) <= 0): # if remaining cooldown
+			_UpdateTextBox()
+			_refreshQueued = false
+			_lastRefreshMsec = Time.get_ticks_msec()
+		
 func SetModConfig(config: ModConfig):
 	if (_modConfig != null):
 		if (_modConfig.is_connected("ConfigValueChanged", _on_mod_config_value_changed)):
@@ -107,7 +122,6 @@ func SetModConfig(config: ModConfig):
 	
 	_modConfig = config
 	config.ConfigValueChanged.connect(_on_mod_config_value_changed)
-	_InvalidateFormattedMessages()
 
 func MinimizeWindow():
 	ChangeExpandedState(false)
@@ -120,16 +134,15 @@ func ChangeExpandedState(isExpanded: bool):
 		return
 
 	_isExpanded = isExpanded
-	WindowContent.visible = isExpanded
+	DisplayTextBox.visible = isExpanded
 	ResizeHandle.visible = isExpanded
+	WindowContent.visible = isExpanded
 
 	if (!isExpanded):
 		_preMinimizeRect = get_rect()
 		UpdateWindowRect(MINIMIZED_RECT)
 	else:
 		UpdateWindowRect(_preMinimizeRect)
-	
-	emit_signal("ExpandedChanged", isExpanded)
 
 func HideWindow():
 	ChangeVisibility(false)
@@ -142,11 +155,12 @@ func ChangeVisibility(isVisible: bool):
 		return
 
 	visible = isVisible
+	WindowContent.visible = isVisible
 
 	if (!isVisible):
 		_on_mouse_btn_released()
 
-	emit_signal("VisibilityChanged", isVisible)
+	#_refreshQueued = true
 
 func CloseWindow():
 	ResetWindow(true, false, DEFAULT_RECT)
@@ -169,17 +183,22 @@ func ResetWindow(isExpanded = null, isVisible = null, newRect = null):
 	ChangeExpandedState(isExpanded)
 	ChangeVisibility(isVisible)
 	UpdateWindowRect(tgtRect)
+	#_refreshQueued = true
 
 func ClearWindow():
-	DisplayTextBox.clear()
+	DisplayTextBox.text = ""
 	_logs.clear()
 
 func MoveWindow(newPos: Vector2):
 	if (position.is_equal_approx(newPos)):
 		return
 
-	set_position.call_deferred(newPos)
-	emit_signal("Moved", position)
+	set_position(newPos)
+
+	#DisplayTextBox.size = DisplayTextBox.get_parent().size + Vector2(0, 200)
+	#DisplayTextBox.position = DisplayTextBox.get_parent().position - Vector2(0, 200)
+	#_refreshQueued = true
+	#emit_signal("Moved", position)
 
 func ResizeWindow(newSize: Vector2):
 	if (size.is_equal_approx(newSize)):
@@ -190,8 +209,15 @@ func ResizeWindow(newSize: Vector2):
 	else:
 		return
 
-	set_size.call_deferred(newSize)
-	emit_signal("Resized", size)
+	newSize = newSize.max(WindowContent.get_combined_minimum_size() + get_theme_stylebox("panel").get_minimum_size())
+
+	DisplayTextBox.process_mode = Node.PROCESS_MODE_DISABLED
+
+	set_size(newSize)
+
+	await get_tree().process_frame
+
+	DisplayTextBox.process_mode = Node.PROCESS_MODE_INHERIT
 
 func UpdateWindow(newPos: Vector2, newSize: Vector2):
 	MoveWindow(newPos)
@@ -206,38 +232,29 @@ func AddLog(msgData: Dictionary):
 	if (msgData["level"] < _logLevel):
 		return
 
+	if (!("formattedText" in msgData)):
+			msgData["formattedText"] = null
+	
+	if (msgData["formattedText"] == null):
+		msgData["formattedText"] = _FilterMessage(_FormatMessage(msgData), FilterEdit.text)
+
+	if (_logs.size() >= MAX_LOGS): # prevent memory bloat, since we keep all logs for filtering purposes
+		_logs.remove_at(0)
+	
 	_logs.append(msgData)
-	PostLog(msgData)
 
-	#_ManageLogCount()
-
-func PostLog(msgData: Dictionary, applyFilter = true):
-	msgData["formattedMsg"] = _FormatMessage(msgData)
-	if (applyFilter):
-		var filteredMsg = _FilterMessage(msgData["formattedMsg"], FilterEdit.text)
-		if (filteredMsg != null):
-			DisplayTextBox.append_text(filteredMsg)
-	else:
-		DisplayTextBox.append_text(msgData["formattedMsg"])
+	_refreshQueued = true
+	
+	#_UpdateTextBox()
 
 func _HasResizeCooldown() -> bool:
-	var tMsec = Time.get_ticks_msec()
-	return tMsec - _lastResizeMsec < _resizeCooldownMsec
-	#if (tMsec - _lastResizeMsec > _resizeCooldownMsec):
-	#	_lastResizeMsec = tMsec
-	#	return false
-	#return true
+	return _resizeCooldownMsec - (Time.get_ticks_msec() - _lastResizeMsec) > 0
 
 func _FormatMessage(msgData: Dictionary) -> String:
-	if (msgData["formattedMsg"] != null):
-		return msgData["formattedMsg"]
-
 	if (msgData["level"] < 2):
-		msgData["formattedMsg"] = _FormatLogMessage(msgData)
+		return _FormatLogMessage(msgData)
 	else:
-		msgData["formattedMsg"] = _FormatErrorMessage(msgData)
-
-	return msgData["formattedMsg"]
+		return _FormatErrorMessage(msgData)
 
 func _FormatLogMessage(msgData: Dictionary) -> String:
 	var msg = msgData["raw"]
@@ -293,28 +310,15 @@ func _GetColorForLevel(level: int) -> Color:
 	
 	return Color("white")
 
-func _InvalidateFormattedMessages():
-	for msg in _logs:
-		msg["formattedMsg"] = null
-
-func _RepostAllMessages():
-	var messages: Array[Dictionary] = []
-	for msg in _logs:
-		msg["formattedMsg"] = _FormatMessage(msg)
-		messages.append(msg)
-	_ApplyFilterToLogs(FilterEdit.text, messages)
-
-	#for el in _logs:
-	#	PostLog(el, false) # we want to batch apply filtering
-	#_ApplyFilterToLogs(FilterEdit.text, messages)
-
 func _HandleMoveViaMouse():
 	if (!_isExpanded): # reveal if moved while minimized
 		ExpandWindow()
 
 	var initialMousePos = _mouseDownPosition
 	var currentMousePos = get_global_mouse_position()
-	var newWindowPos = _preMoveRect.position + (currentMousePos - initialMousePos)
+	var minWindowPos = - HeaderBar.size + Vector2(5, 5) + HeaderButtonPanel.size
+	var maxWindowPos = get_viewport_rect().size - Vector2(5, 5) - HeaderButtonPanel.size
+	var newWindowPos = minWindowPos.max(_preMoveRect.position + (currentMousePos - initialMousePos)).min(maxWindowPos)
 
 	MoveWindow(newWindowPos)
 
@@ -324,72 +328,9 @@ func _HandleResize():
 
 	var mousePos = get_global_mouse_position()
 	var initialWindowRect = _preMoveRect
-	var newSize = mousePos - initialWindowRect.position
-
-	ResizeWindow(newSize)
-
-# Need to revisit this, currently destroys the performance
-func _ManageLogCount():
-	var count = _logs.size()
-	if (count > _maxLogs):
-		var excess: int = max(0, count - int(_maxLogs * 1.25)) # add buffer
-		_logs = _logs.slice(excess, count)
-		#print.call_deferred("Removed %d excess logs, count is now %d" % [excess, _logs.size()])
-
-		DisplayTextBox.clear()
-		_RepostAllMessages()
-
-	# Toggle threading if huge amounts of logs are being posted, to prevent freezing the game
-	#@warning_ignore("integer_division")
-	#if (count > _maxLogs / 2):
-	#	if (DisplayTextBox.threaded == false):
-	#		DisplayTextBox.threaded = true
-	#else:
-	#	if (DisplayTextBox.threaded == true):
-	#		DisplayTextBox.threaded = false
-
-func _ApplyFilterToLogs(filterText: String, logs = null):
-	var matches: Array[String] = []
-	var regex = RegEx.create_from_string(r"(?i)(%s)" % DbgUtils.EscapeRegex(filterText))
-	var highlightColor = _modConfig.GetConfigValueOrDefault("filterHighlightColor").to_html()
-	var textColor = _modConfig.GetConfigValueOrDefault("filterTextColor").to_html()
-
-	var shouldHighlight = _modConfig.GetConfigValueOrDefault("filterHighlightEnabled")
-	var shouldRemoveNonMatches = _modConfig.GetConfigValueOrDefault("filterRemoveNonMatches")
-
-	if (logs == null):
-		logs = _logs
-
-	if (filterText.length() < 2):
-		for i in range(logs.size()): # Select the text of each log
-			matches.append(logs[i]["formattedMsg"])
-	else:
-		if (!shouldHighlight and !shouldRemoveNonMatches):
-			return # no need to filter if we're not highlighting or removing non-matches
-
-		var matchedStr = "[color=%s][bgcolor=%s]$0[/bgcolor][/color]" % [textColor, highlightColor]
-		for el in logs:
-			var elMatches = regex.search_all(el["formattedMsg"])
-
-			if (!shouldHighlight && elMatches.size() > 0): # match, not highlighting
-				matches.append(el["formattedMsg"])
-			elif (!shouldRemoveNonMatches and elMatches.size() == 0): # unknown match, not removing non-matches
-				matches.append(el["formattedMsg"])
-			elif (elMatches.size() > 0): # match, highlighting and removing non-matches
-				matches.append(regex.sub(el["formattedMsg"], matchedStr, true))
+	var newSize = get_viewport_rect().size.min(mousePos - initialWindowRect.position)
 	
-	DisplayTextBox.clear()
-
-	if (matches.size() == 0):
-		DisplayTextBox.append_text("[color=#999]\"%s\" was not found in any log messages[/color]" % filterText)
-	else:
-		# todo
-		#var batchSize = 50
-		#for i in range(0, matches.size(), batchSize):
-		#	var batch = matches.slice(i, i + batchSize)
-		#	DisplayTextBox.append_text(batch.reduce(func(a, b): return a + "\n" + b))
-		for el in matches:
-			DisplayTextBox.append_text(el)
+	ResizeWindow(newSize)
 
 ## Returns String | null (if the msg didn't match the filter and should be removed)
 func _FilterMessage(msg: String, filterText: String) -> Variant:
@@ -413,6 +354,22 @@ func _FilterMessage(msg: String, filterText: String) -> Variant:
 
 	return msg
 
+func _GetRecentLogs(count: int) -> Array[Dictionary]:
+	return _logs.slice(max(0, _logs.size() - count), _logs.size())
+
+func _UpdateTextBox():
+	var mostRecentLogs = _GetRecentLogs(MAX_LOGS)
+	var text = ""
+
+	for msgData in mostRecentLogs:
+		if (msgData["formattedText"] == null or msgData["formattedText"] == ""):
+			msgData["formattedText"] = _FilterMessage(_FormatMessage(msgData), FilterEdit.text)
+		
+		if (msgData["formattedText"] != null):
+			text += msgData["formattedText"]
+
+	DisplayTextBox.text = text
+
 func _on_mod_config_value_changed(key: String, _value: Variant):
 	const COLOR_SETTING_KEYS = [
 		"colorEntireMessage",
@@ -427,18 +384,15 @@ func _on_mod_config_value_changed(key: String, _value: Variant):
 	]
 
 	if (key in COLOR_SETTING_KEYS):
-		_InvalidateFormattedMessages()
-		DisplayTextBox.clear()
-		_RepostAllMessages()
-		_ApplyFilterToLogs(FilterEdit.text) # re-apply filter
+		for msg in _logs:
+			msg["formattedText"] = null
+		
+		_refreshQueued = true
 
 func _on_mouse_btn_released():
 	_mouseIsDraggingWindow = false
 	_mouseIsResizingWindow = false
 	_mouseLeftButtonPressed = false
-
-func _on_resized():
-	size = size
 
 func _on_minimize_window_pressed() -> void:
 	ChangeExpandedState(!_isExpanded)
@@ -477,6 +431,8 @@ func _on_header_bar_gui_input(event: InputEvent) -> void:
 
 			elif (not event.is_pressed()):
 				_on_mouse_btn_released()
+		
+			accept_event()
 
 func _on_resize_handle_gui_input(event: InputEvent) -> void:
 	if (event is InputEventMouseButton):
@@ -485,23 +441,29 @@ func _on_resize_handle_gui_input(event: InputEvent) -> void:
 				_mouseDownPosition = get_global_mouse_position()
 				_preMoveRect = get_rect()
 				_mouseIsResizingWindow = true
-				DisplayTextBox.self_modulate = DisplayTextBox.self_modulate.darkened(0.3)
-				DisplayTextBox.process_mode = Node.PROCESS_MODE_DISABLED
-				DisplayTextBox.autowrap_mode = TextServer.AUTOWRAP_OFF
 			else:
 				_on_mouse_btn_released()
-				DisplayTextBox.process_mode = Node.PROCESS_MODE_INHERIT
-				DisplayTextBox.self_modulate = Color.WHITE
-				DisplayTextBox.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			
+			accept_event()
 
-func _on_filter_edit_text_changed(filterText: String) -> void:
-	if (!DisplayTextBox.threaded):
-		_ApplyFilterToLogs(filterText)
-	else:
-		call_deferred_thread_group("_ApplyFilterToLogs", filterText)
+func _on_filter_edit_text_changed(_text: String) -> void:
+	for msg in _logs:
+		msg["formattedText"] = null
+	_refreshQueued = true
+
+func _on_scroll_follow_toggle_toggled(toggled_on: bool) -> void:
+	DisplayTextBox.scroll_following = toggled_on
+	DisplayTextBox.scroll_following_visible_characters = toggled_on
 
 func _unhandled_input(event: InputEvent) -> void:
 	if (event is InputEventMouseButton):
 		if (event.button_index == MouseButton.MOUSE_BUTTON_LEFT):
-			if (!event.is_pressed()): # only update on release
+			if (event.is_pressed()):
+				_mouseDownPosition = get_global_mouse_position()
+				if (!get_global_rect().has_point(_mouseDownPosition)):
+					_on_mouse_btn_released() # stop dragging if we click outside the window
+			else: # only update on release
 				_on_mouse_btn_released()
+	elif (event is InputEventMouseMotion and (_mouseIsDraggingWindow or _mouseIsResizingWindow)):
+		if (!Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)):
+			_on_mouse_btn_released() # catch case where mouse button release is missed

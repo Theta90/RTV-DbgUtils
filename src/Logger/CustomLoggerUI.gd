@@ -4,7 +4,7 @@ signal MenuCreated(newMenu: LoggerMenu)
 signal MenuDestroyed(destroyedMenu: LoggerMenu)
 signal MenuExpandedChanged(isExpanded: bool, menu: LoggerMenu)
 signal MenuVisibilityChanged(isVisible: bool, menu: LoggerMenu)
-signal MenuRectChanged(newRect: Rect2, menu: LoggerMenu)
+#signal MenuRectChanged(newRect: Rect2, menu: LoggerMenu)
 
 static var ScenePath: String = "res://mods/DbgUtils/Logger/CustomLoggerUI.tscn"
 
@@ -30,10 +30,10 @@ func CreateMenu(modConfig: ModConfig) -> LoggerMenu:
 	newMenu.ChangeVisibility(modConfig.GetConfigValue("openOnMenu"))
 	newMenu.UpdateWindowRect(newMenu.MENU_RECT)
 
-	newMenu.VisibilityChanged.connect(_on_logger_menu_visibility_changed.bind(newMenu as LoggerMenu))
-	newMenu.ExpandedChanged.connect(_on_logger_menu_expanded_changed.bind(newMenu as LoggerMenu))
-	newMenu.Moved.connect(_on_logger_menu_moved.bind(newMenu as LoggerMenu))
-	newMenu.Resized.connect(_on_logger_menu_resized.bind(newMenu as LoggerMenu))
+	#newMenu.VisibilityChanged.connect(_on_logger_menu_visibility_changed.bind(newMenu as LoggerMenu))
+	#newMenu.ExpandedChanged.connect(_on_logger_menu_expanded_changed.bind(newMenu as LoggerMenu))
+	#newMenu.Moved.connect(_on_logger_menu_moved.bind(newMenu as LoggerMenu))
+	#newMenu.Resized.connect(_on_logger_menu_resized.bind(newMenu as LoggerMenu))
 
 	MenuCreated.emit(newMenu)
 
@@ -138,11 +138,11 @@ func _on_logger_menu_visibility_changed(isVisible: bool, _window: LoggerMenu) ->
 			_visibilityDisabled = true
 	emit_signal("MenuVisibilityChanged", _window, isVisible)
 
-func _on_logger_menu_moved(_newPos: Vector2, _window: LoggerMenu) -> void:
-	emit_signal("MenuRectChanged", _window, _window.get_global_rect())
-
-func _on_logger_menu_resized(_newSize: Vector2, _window: LoggerMenu) -> void:
-	emit_signal("MenuRectChanged", _window, _window.get_global_rect())
+#func _on_logger_menu_moved(_newPos: Vector2, _window: LoggerMenu) -> void:
+#	emit_signal("MenuRectChanged", _window, _window.get_global_rect())
+#
+#func _on_logger_menu_resized(_newSize: Vector2, _window: LoggerMenu) -> void:
+#	emit_signal("MenuRectChanged", _window, _window.get_global_rect())
 
 func _notification(what: int) -> void:
 	if (what == NOTIFICATION_PREDELETE):

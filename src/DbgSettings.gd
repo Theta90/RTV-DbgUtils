@@ -20,9 +20,6 @@ enum LogLevel {
 
 ## The maximum stack depth to include in the log message. 0 for unlimited.
 @export var maxDepth: int = 0
-
-## The maximum number of messages to keep in the log. 0 for unlimited.
-@export var maxMessageCount: int = 0
 #endregion Settings
 
 #region Formatting
