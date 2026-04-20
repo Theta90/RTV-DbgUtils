@@ -220,7 +220,6 @@ func _notification(what: int) -> void:
 
 func _input(event: InputEvent) -> void:
 	if (event is InputEventKey):
-		print("pressed %s" % event.keycode)
 		if (event.keycode == _modConfig.GetConfigValueOrDefault("toggleDebugUIKey")):
 			if (_toggleDebugUIKeyPressed and event.is_pressed()):
 				return # prevent holding
