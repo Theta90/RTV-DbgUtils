@@ -1,3 +1,7 @@
+Version 1.2.2
+
+- Fixed a couple issues relating to when MCM was not installed
+
 Version 1.2.1
 
 - Performance improvements, especially with a large number of log entries.

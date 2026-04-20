@@ -71,8 +71,8 @@ func _ready() -> void:
 		root.connect("child_entered_tree", _onRootChildrenChanged)
 		root.connect("child_exiting_tree", _onRootChildrenChanged)
 
-		add_child(_customLoggerUI)
 		add_child(_modConfig)
+		add_child(_customLoggerUI)
 
 		_customLoggerUI.CreateMenu(_modConfig)
 
@@ -175,7 +175,7 @@ func _onRootChildrenChanged(_child: Node) -> void:
 
 	# if we just entered the menu
 	if (!_isInMainMenu):
-		var openOnMenu = _modConfig.GetConfigValue("openOnMenu")
+		var openOnMenu = _modConfig.GetConfigValueOrDefault("openOnMenu")
 		_customLoggerUI.ToggleVisibility(openOnMenu)
 
 		if (openOnMenu):
@@ -204,7 +204,7 @@ func _on_scene_changed() -> void:
 	if (mainMenu != null):
 		_isInMainMenu = true
 
-		if (_modConfig.GetConfigValue("openOnMenu")):
+		if (_modConfig.GetConfigValueOrDefault("openOnMenu")):
 			_customLoggerUI.ToggleVisibility(true)
 	else:
 		_isInMainMenu = false
@@ -220,7 +220,8 @@ func _notification(what: int) -> void:
 
 func _input(event: InputEvent) -> void:
 	if (event is InputEventKey):
-		if (event.keycode == _modConfig.GetConfigValue("toggleDebugUIKey")):
+		print("pressed %s" % event.keycode)
+		if (event.keycode == _modConfig.GetConfigValueOrDefault("toggleDebugUIKey")):
 			if (_toggleDebugUIKeyPressed and event.is_pressed()):
 				return # prevent holding
 			elif (not event.is_pressed()):
@@ -251,7 +252,7 @@ func _input(event: InputEvent) -> void:
 				elif (curMode == Input.MouseMode.MOUSE_MODE_CONFINED):
 					_CaptureMouse()
 	
-		elif (event.keycode == _modConfig.GetConfigValue("toggleMouseKey")):
+		elif (event.keycode == _modConfig.GetConfigValueOrDefault("toggleMouseKey")):
 			if (event.is_pressed()):
 				_on_toggle_mouse_mode_key_pressed()
 

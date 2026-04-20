@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://bvwl54opy6eev"]
 
-[ext_resource type="Script" uid="uid://b80e4k36b2vk1" path="res://mods/DbgUtils/Logger/CustomLoggerUI.gd" id="1_fx2av"]
+[ext_resource type="Script" path="res://mods/DbgUtils/Logger/CustomLoggerUI.gd" id="1_fx2av"]
 
 [node name="CustomLoggerUI" type="CanvasLayer" unique_id=2085765096]
 layer = 2

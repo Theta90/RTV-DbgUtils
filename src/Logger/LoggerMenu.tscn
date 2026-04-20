@@ -1,6 +1,8 @@
 [gd_scene format=3 uid="uid://bqpnv3l22kcns"]
 
 [ext_resource type="Script" path="res://mods/DbgUtils/Logger/LoggerMenu.gd" id="1_u554x"]
+[ext_resource type="FontFile" path="res://mods/DbgUtils/Assets/RobotoMono-Regular.ttf.fontdata" id="2_mrltf"]
+[ext_resource type="FontFile" path="res://mods/DbgUtils/Assets/RobotoMono-Bold.ttf.fontdata" id="3_xbqq8"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_g0mdq"]
 content_margin_left = 2.0
@@ -104,8 +106,10 @@ data = {
 image = SubResource("Image_u554x")
 
 [node name="LoggerMenu" type="PanelContainer" unique_id=156512267 node_paths=PackedStringArray("DisplayTextBox", "WindowContent", "HeaderBar", "HeaderButtonPanel", "ResizeHandle", "FilterEdit")]
-offset_right = 400.0
-offset_bottom = 200.0
+offset_left = 1300.0
+offset_top = 600.0
+offset_right = 1700.0
+offset_bottom = 800.0
 theme_override_styles/panel = SubResource("StyleBoxFlat_g0mdq")
 script = ExtResource("1_u554x")
 DisplayTextBox = NodePath("VBoxContainer/WindowContent/VBoxContainer/DisplayPanel/DisplayTextBox")
@@ -189,6 +193,9 @@ theme_override_constants/shadow_offset_y = 0
 theme_override_constants/outline_size = 0
 theme_override_constants/text_highlight_h_padding = 0
 theme_override_constants/text_highlight_v_padding = 0
+theme_override_fonts/normal_font = ExtResource("2_mrltf")
+theme_override_fonts/bold_font = ExtResource("3_xbqq8")
+theme_override_fonts/mono_font = ExtResource("2_mrltf")
 theme_override_font_sizes/normal_font_size = 10
 theme_override_font_sizes/bold_font_size = 10
 theme_override_font_sizes/bold_italics_font_size = 10

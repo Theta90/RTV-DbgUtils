@@ -32,7 +32,7 @@ const FILE_NAME := "config.ini"
 const gameData := preload("res://Resources/GameData.tres")
 const MCMNotInstalledUI := preload("res://mods/DbgUtils/MCM/mcm_not_installed.tscn")
 
-var MCM := load("res://ModConfigurationMenu/Scripts/Doink Oink/MCM_Helpers.tres")
+var MCM
 
 var _localConfig: Dictionary[String, Array] = {
 
@@ -165,16 +165,21 @@ var _localConfig: Dictionary[String, Array] = {
 var connectionError: Error = Error.OK
 var isFirstUse: bool = true
 
-func _init() -> void:
-	pass
-
 func _ready() -> void:
+	var keys = _localConfig.keys()
 	for k in _localConfig.keys():
 		if (_localConfig[k][0] == "Category"):
 			continue
 		
 		_localConfig[k][2]["default"] = DEFAULT_CONFIG_SETTINGS[k]
 		_localConfig[k][2]["value"] = DEFAULT_CONFIG_SETTINGS[k]
+	
+	const MCM_PATH := "res://ModConfigurationMenu/Scripts/Doink Oink/MCM_Helpers.tres"
+	if (!ResourceLoader.exists(MCM_PATH)):
+		connectionError = Error.ERR_FILE_MISSING_DEPENDENCIES
+		return
+
+	MCM = load(MCM_PATH)
 
 	var result = _ConnectToMCM()
 	var error: Error = result[0]
@@ -281,13 +286,13 @@ func GetLocalConfig(key: String) -> Variant:
 		return _localConfig[key]
 	return null
 
-func GetConfigValue(key: String, default: Variant = null) -> Variant:
-	if (key in _localConfig):
-		return _localConfig[key][2]["value"]
-	return default
+func GetConfigValue(key: String) -> Variant:
+	return _localConfig[key][2]["value"]
 
 func GetConfigValueOrDefault(key: String) -> Variant:
-	return GetConfigValue(key, DEFAULT_CONFIG_SETTINGS[key])
+	if (key in _localConfig):
+		return GetConfigValue(key)
+	return DEFAULT_CONFIG_SETTINGS[key]
 
 func SetConfigValue(key: String, value: Variant) -> void:
 	if (!(key in _localConfig)):
