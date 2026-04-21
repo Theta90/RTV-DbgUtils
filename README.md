@@ -64,3 +64,6 @@ C:\Program Files (x86)\Steam\steamapps\common\Road to Vostok\mods
 ```
 
 3. Enjoy :)!
+
+## Misc
+For transparency, the repo for the build system that I created/use for this mod is located [here](https://github.com/Theta90/RTV-ModBuilder). It is a NodeJS-based script that will generate the mod.txt for me, bundle any assets, zip, and then rename to .vmz. It utilizes archiver (and it's dependencies).
