@@ -4,7 +4,6 @@ signal MenuCreated(newMenu: LoggerMenu)
 signal MenuDestroyed(destroyedMenu: LoggerMenu)
 signal MenuExpandedChanged(isExpanded: bool, menu: LoggerMenu)
 signal MenuVisibilityChanged(isVisible: bool, menu: LoggerMenu)
-#signal MenuRectChanged(newRect: Rect2, menu: LoggerMenu)
 
 static var ScenePath: String = "res://mods/DbgUtils/Logger/CustomLoggerUI.tscn"
 
@@ -27,13 +26,8 @@ func CreateMenu(modConfig: ModConfig) -> LoggerMenu:
 	add_child(newMenu)
 
 	newMenu.SetModConfig(modConfig)
-	newMenu.ChangeVisibility(modConfig.GetConfigValue("openOnMenu"))
+	newMenu.ChangeVisibility(modConfig.GetConfigValueOrDefault("openOnMenu"))
 	newMenu.UpdateWindowRect(newMenu.MENU_RECT)
-
-	#newMenu.VisibilityChanged.connect(_on_logger_menu_visibility_changed.bind(newMenu as LoggerMenu))
-	#newMenu.ExpandedChanged.connect(_on_logger_menu_expanded_changed.bind(newMenu as LoggerMenu))
-	#newMenu.Moved.connect(_on_logger_menu_moved.bind(newMenu as LoggerMenu))
-	#newMenu.Resized.connect(_on_logger_menu_resized.bind(newMenu as LoggerMenu))
 
 	MenuCreated.emit(newMenu)
 

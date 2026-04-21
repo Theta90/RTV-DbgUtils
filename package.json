@@ -1,7 +1,7 @@
 {
   "name": "rtv-dbg-utils",
   "displayName": "DbgUtils",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "type": "module",
   "devDependencies": {
     "@types/node": "^25.5.2",
