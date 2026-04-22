@@ -2,8 +2,7 @@ extends CanvasLayer
 
 signal MenuCreated(newMenu: LoggerMenu)
 signal MenuDestroyed(destroyedMenu: LoggerMenu)
-signal MenuExpandedChanged(isExpanded: bool, menu: LoggerMenu)
-signal MenuVisibilityChanged(isVisible: bool, menu: LoggerMenu)
+signal MenuClearPressed(menu: LoggerMenu)
 
 static var ScenePath: String = "res://mods/DbgUtils/Logger/CustomLoggerUI.tscn"
 
@@ -28,6 +27,10 @@ func CreateMenu(modConfig: ModConfig) -> LoggerMenu:
 	newMenu.SetModConfig(modConfig)
 	newMenu.ChangeVisibility(modConfig.GetConfigValueOrDefault("openOnMenu"))
 	newMenu.UpdateWindowRect(newMenu.MENU_RECT)
+
+	newMenu._maxLogCount = modConfig.GetConfigValueOrDefault("maxLogCount")
+
+	newMenu.ClearPressed.connect(_on_menu_clear_pressed)
 
 	MenuCreated.emit(newMenu)
 
@@ -78,7 +81,7 @@ func DestroyAllMenus():
 	_visibilityDisabled = false
 
 func AddLog(msgData: Dictionary):
-	ForEach(func(menu): (menu as LoggerMenu).AddLog(msgData))
+	ForEach(func(menu): (menu).AddLog(msgData))
 
 #region "LINQ"
 
@@ -120,23 +123,8 @@ func _on_open_menu_pressed() -> void:
 func _on_close_menu_pressed() -> void:
 	pass
 
-func _on_logger_menu_expanded_changed(isExpanded: bool, _window: LoggerMenu) -> void:
-	emit_signal("MenuExpandedChanged", _window, isExpanded)
-
-func _on_logger_menu_visibility_changed(isVisible: bool, _window: LoggerMenu) -> void:
-	if (_visibilityDisabled and isVisible):
-		_visibilityDisabled = false
-	elif (!_visibilityDisabled and !isVisible):
-		var hasVisibleMenus = Any(func(menu): return menu.visible)
-		if (!hasVisibleMenus):
-			_visibilityDisabled = true
-	emit_signal("MenuVisibilityChanged", _window, isVisible)
-
-#func _on_logger_menu_moved(_newPos: Vector2, _window: LoggerMenu) -> void:
-#	emit_signal("MenuRectChanged", _window, _window.get_global_rect())
-#
-#func _on_logger_menu_resized(_newSize: Vector2, _window: LoggerMenu) -> void:
-#	emit_signal("MenuRectChanged", _window, _window.get_global_rect())
+func _on_menu_clear_pressed(menu: LoggerMenu) -> void:
+	MenuClearPressed.emit(menu)
 
 func _notification(what: int) -> void:
 	if (what == NOTIFICATION_PREDELETE):
