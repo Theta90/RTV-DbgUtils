@@ -6,6 +6,11 @@ static var DEFAULT_CONFIG_SETTINGS = {
 	# General
 	"openOnMenu": true,
 
+	# Log Trimming
+	"enableMaxLogCount": true,
+	"maxLogCount": 1000,
+	"maxLogTrimPercent": 0.25,
+
 	# Keybinds
 	"toggleDebugUIKey": Key.KEY_QUOTELEFT,
 	"toggleMouseKey": Key.KEY_PERIOD,
@@ -30,7 +35,6 @@ const FILE_PATH := "user://MCM/DbgUtils"
 const FILE_NAME := "config.ini"
 
 const gameData := preload("res://Resources/GameData.tres")
-const MCMNotInstalledUI := preload("res://mods/DbgUtils/MCM/mcm_not_installed.tscn")
 
 var MCM
 
@@ -47,16 +51,56 @@ var _localConfig: Dictionary[String, Array] = {
 		"tooltip" = "Whether the mod should open in the main menu. The mod is still accessible in-game through the keybind to " +
 			"toggle the UI, this only sets if the UI will appear when entering the main menu.",
 		"category" = "General",
+		"menu_pos" = 1
 	}],
 
 	#endregion General
+
+	#region Log Trimming
+
+	"Log Trimming" = ["Category", "Log Trimming", {
+		"menu_pos" = 2
+	}],
+
+	"enableMaxLogCount" = ["Bool", "enableMaxLogCount", {
+		"name" = "Enable Max Log Count",
+		"tooltip" = "Whether to enable the maximum log count limit. When the number of logs exceeds the max log count, old logs will be removed to prevent performance issues.",
+		"category" = "Log Trimming",
+		"menu_pos" = 1
+	}],
+
+	"maxLogCount" = ["Int", "maxLogCount", {
+		"name" = "Max Log Count",
+		"tooltip" = "The maximum number of log messages that the log viewer will store. Setting this to a low number will help with performance. " +
+			"Setting it to 0 will allow for unlimited log messages.",
+		"category" = "Log Trimming",
+		"menu_pos" = 2,
+		"minRange" = 50,
+		"maxRange" = 10000
+	}],
+
+	# The "soft target" means that this is just the goal of the trimming, but it may remove more or less depending on a few things.
+	# If, when removing, the current logs minus the trimmed percentage is still greater than the max, this will be overridden to trim 
+	#	enough logs to get under said max.
+	"maxLogTrimPercent" = ["Float", "maxLogTrimPercent", {
+		"name" = "Trim Percent Target",
+		"tooltip" = "A soft target for the number of logs to remove when the max is exceeded. If the number of current logs minus the trim percentage is still " +
+			"greater than the max, this will be overridden.",
+		"category" = "Log Trimming",
+		"menu_pos" = 3,
+		"minRange" = 0.1,
+		"maxRange" = 1.0,
+		"step" = 0.05
+	}],
+
+	#endregion Log Trimming
 
 	# openOnError
 
 	#region Keybinds
 
 	"Keybinds" = ["Category", "Keybinds", {
-		"menu_pos" = 2
+		"menu_pos" = 3
 	}],
 
 	"toggleDebugUIKey" = ["Keycode", "toggleDebugUIKey", {
@@ -84,7 +128,7 @@ var _localConfig: Dictionary[String, Array] = {
 	#region Logging Colors
 
 	"Logging Colors" = ["Category", "Logging Colors", {
-		"menu_pos" = 3
+		"menu_pos" = 4
 	}],
 
 	"colorEntireMessage" = ["Bool", "colorEntireMessage", {
@@ -127,7 +171,7 @@ var _localConfig: Dictionary[String, Array] = {
 	#region Filtering
 
 	"Filtering" = ["Category", "Filtering", {
-		"menu_pos" = 4
+		"menu_pos" = 5
 	}],
 
 	"filterHighlightEnabled" = ["Bool", "filterHighlightEnabled", {
@@ -182,36 +226,14 @@ func _ready() -> void:
 	MCM = load(MCM_PATH)
 
 	var result = _ConnectToMCM()
-	var error: Error = result[0]
+	connectionError = result[0]
 
-	if (error == Error.OK):
+	if (connectionError == Error.OK):
 		for k in _localConfig.keys():
 			if (_localConfig[k][0] == "Category"):
 				continue
 
 			ConfigValueChanged.emit(k, _localConfig[k][2]["value"])
-	else:
-		connectionError = error
-		
-		var _notInstalledUI = MCMNotInstalledUI.instantiate()
-		_notInstalledUI.find_child("Link").pressed.connect(func():
-			OS.shell_open("https://modworkshop.net/mod/53713")
-		)
-		_notInstalledUI.find_child("Quit").pressed.connect(func():
-			Loader.Quit()
-		)
-		_notInstalledUI.find_child("Description").text = (
-			("Mod Configuration Menu must be installed to use %s. " % MOD_NAME) +
-			"The button below will take you to the MCM ModWorkshop page."
-		)
-			
-		for _element in get_parent().get_children():
-			if _element.name == "Menu":
-				_element.find_child("Main").hide()
-				_element.add_child(_notInstalledUI)
-				return
-
-	#dbg.debug("Initialization complete.")
 
 func _ConnectToMCM() -> Array: # returns [Error, ConfigFile?]
 	var result = [Error.OK, null]
@@ -249,6 +271,8 @@ func _LoadConfigFile() -> Array:
 	for k in _localConfig.keys():
 		result[1].set_value(_localConfig[k][0], k, _localConfig[k][2])
 
+	# If the config file doesn't exist, create it with the default settings. 
+	# If it does exist, load it and update the config values.
 	if !FileAccess.file_exists(configPath):
 		if (!DirAccess.dir_exists_absolute(FILE_PATH)):
 			result[0] = DirAccess.open("user://").make_dir(FILE_PATH)
@@ -266,7 +290,6 @@ func _LoadConfigFile() -> Array:
 	return result
 
 func _UpdateConfigProperties(config: ConfigFile):
-	#dbg.debug("_UpdateConfigProperties called, updates:")
 	for key in _localConfig.keys():
 		var section = _localConfig[key][0]
 		
@@ -275,8 +298,6 @@ func _UpdateConfigProperties(config: ConfigFile):
 
 		var newValue = config.get_value(section, key)["value"]
 		SetConfigValue(key, newValue)
-		
-	#dbg.debug("-> _UpdateConfigProperties ended")
 
 func HasConfigKey(key: String) -> bool:
 	return key in _localConfig

@@ -41,6 +41,9 @@ var _mouseIsForceCaptured: bool = false # cannot be true while the above is true
 ## }
 var _logs: Array[Dictionary] = []
 
+var _maxLogCount: int = ModConfig.DEFAULT_CONFIG_SETTINGS["maxLogCount"]
+var _enableMaxLogCount: bool = ModConfig.DEFAULT_CONFIG_SETTINGS["enableMaxLogCount"]
+
 func _ready() -> void:
 	var isFirstInstance: bool = false
 	name = "DbgUtils"
@@ -48,8 +51,7 @@ func _ready() -> void:
 	if (OS.is_debug_build()):
 		_autoload = get_node_or_null("/root/DbgUtils") # testing in the editor
 		if (_autoload == null):
-			dbg.warning("DbgUtils autoload node not found in debug build. You can assign it manually in the editor under \"Globals\". " +
-			"Proceeding without DebugUtils autoload, meaning the Dbg instance will be untethered.")
+			dbg.warning("DbgUtils may not work as expected when testing in the editor.")
 	else:
 		_autoload = get_node_or_null("/root/!DbgUtils") # release build
 
@@ -75,6 +77,15 @@ func _ready() -> void:
 		add_child(_customLoggerUI)
 
 		_customLoggerUI.CreateMenu(_modConfig)
+		_customLoggerUI.MenuClearPressed.connect(_on_menu_clear_pressed)
+
+		if (_modConfig.connectionError != Error.OK):
+			if (_modConfig.connectionError == Error.ERR_FILE_MISSING_DEPENDENCIES):
+				dbg.warning("Failed to connect to MCM, MCM not found. MCM features will be unavailable.")
+			else:
+				dbg.error("Failed to connect to MCM, error code: %s. MCM features will be unavailable." % [
+					error_string(_modConfig.connectionError)
+				])
 
 		dbg.info("DbgUtils initialized, [wave][rainbow]have a nice day![/rainbow][/wave]")
 	else:
@@ -114,10 +125,35 @@ func _AddLog(msgData: Dictionary):
 	_logs.append(msgData)
 	_customLoggerUI.AddLog(msgData)
 
-	if (_logs.size() > 1000):
-		const numLogsToRemove = 500
-		_logs = _logs.slice(numLogsToRemove, _logs.size())
-		dbg.warning("DbgUtils log count exceeded 1000. %s old logs have been cleared to prevent memory issues." % numLogsToRemove)
+	if (_maxLogCount != 0 and _logs.size() > _maxLogCount):
+		await _TrimLogs()
+
+func _TrimLogs():
+	if (_maxLogCount == 0):
+		return # should not trim if max log count is disabled
+
+	var logCount: int = _logs.size()
+	var trimPercent = _modConfig.GetConfigValueOrDefault("maxLogTrimPercent")
+	var excessLogs = logCount - _maxLogCount
+	if (excessLogs <= 0):
+		return # no need to trim yet
+
+	var newStartIndex = int(_maxLogCount * trimPercent) + excessLogs
+
+	var targetSize = logCount - newStartIndex
+
+	_logs = _logs.slice(newStartIndex, logCount)
+	_customLoggerUI.ForEach(func(menu: LoggerMenu): menu._ResizeLogs(targetSize))
+
+	await get_tree().process_frame
+
+	var numRemoved: int = logCount - _logs.size()
+	var trimPercentStr := int((numRemoved / float(logCount)) * 100.0)
+	dbg.info(
+		"Exceeded max of %d logs, trimming top %d%% oldest messages (~%d total). You can change the trim percentage and max log count in the MCM settings." % [
+			_maxLogCount, trimPercentStr, numRemoved
+		]
+	)
 
 func _CaptureMouse():
 	Input.mouse_mode = Input.MouseMode.MOUSE_MODE_CAPTURED
@@ -183,10 +219,34 @@ func _onRootChildrenChanged(_child: Node) -> void:
 	
 	_isInMainMenu = true
 
-func _onConfigValueChanged(_configKey: String, _newValue: Variant) -> void:
-	#dbg.debug("Received ConfigValueChanged signal with key '%s' and value '%s'" % [configKey, newValue])
-	#_configSettings[configKey] = newValue
-	pass
+func _onConfigValueChanged(configKey: String, newValue: Variant) -> void:
+	if (configKey == "enableMaxLogCount"):
+		_enableMaxLogCount = newValue
+
+		if (!_enableMaxLogCount):
+			_maxLogCount = 0
+			dbg.info("Disabled max log count, allowing unlimited logs. Consider the performance implications of this setting!!!")
+		else:
+			_onConfigValueChanged("maxLogCount", _modConfig.GetConfigValueOrDefault("maxLogCount"))
+		return
+	
+	if (configKey == "maxLogCount"):
+		var maxCountEnabled = _modConfig.GetConfigValueOrDefault("enableMaxLogCount")
+		var minCountIfEnabled = _modConfig._localConfig["maxLogCount"][2]["minRange"]
+
+		_maxLogCount = 0 if !maxCountEnabled else max(newValue, minCountIfEnabled)
+
+		# eventually we want each individual window to have it's own max log count setting
+		_customLoggerUI.ForEach(
+			func(menu: LoggerMenu):
+				menu._maxLogCount = _maxLogCount
+				menu._UpdateTextBox()
+		)
+
+func _on_menu_clear_pressed(menu: LoggerMenu) -> void:
+	# For now, this just clears all logs globally, but eventually we want to support per-menu log clearing
+	_logs.clear()
+	_customLoggerUI.ForEach(func(el): if (el != menu): el.Clear()) # clear all other menus
 	
 func _on_toggle_mouse_mode_key_pressed():
 	if (_isInMainMenu):
@@ -256,8 +316,8 @@ func _input(event: InputEvent) -> void:
 				_on_toggle_mouse_mode_key_pressed()
 
 		#elif (event.keycode == Key.KEY_MINUS and event.is_pressed()):
-		#	if (OS.is_debug_build()):
-		#		_Tour()
+		#	#if (OS.is_debug_build()):
+		#	_Tour()
 
 #region CustomLogger
 
