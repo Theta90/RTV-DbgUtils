@@ -1,4 +1,3 @@
-@tool
 extends PanelContainer
 
 @export var DisplayTextBox: RichTextLabel
@@ -7,6 +6,10 @@ extends PanelContainer
 @export var HeaderButtonPanel: PanelContainer
 @export var ResizeHandle: TextureRect
 @export var FilterEdit: LineEdit
+@export var FilterMatchCount: Label
+
+## Will need to change this to support multiple LoggerMenus (currently clears global logs)
+signal ClearPressed
 
 ## The scene holding this script
 static var LoggerMenuPath: String = "res://mods/DbgUtils/Logger/LoggerMenu.tscn"
@@ -19,11 +22,10 @@ const DEFAULT_RECT := Rect2(Vector2(0, 0), Vector2(400, 200))
 const MINIMIZED_RECT := Rect2(Vector2(0, 0), Vector2(128, 30))
 const DEFAULT_TEXT_BACKGROUND_COLOR := Color("#00000099")
 
-const MAX_LOGS: int = 100
-
 var _modConfig: ModConfig = null
 
 var _logLevel: int = 0 # todo: make configurable in this window
+var _maxLogCount: int = 300
 
 var _preMinimizeRect := Rect2()
 var _preMoveRect := Rect2()
@@ -64,6 +66,7 @@ var _refreshQueued: bool = false
 ##	}
 ## }
 var _logs: Array[Dictionary] = []
+var _logsMatchingFilter: Array[Dictionary] = []
 
 func _ready() -> void:
 	var fonts = {
@@ -160,7 +163,7 @@ func ChangeVisibility(isVisible: bool):
 	if (!isVisible):
 		_on_mouse_btn_released()
 
-	#_refreshQueued = true
+	_UpdateTextBox()
 
 func CloseWindow():
 	ResetWindow(true, false, DEFAULT_RECT)
@@ -185,9 +188,10 @@ func ResetWindow(isExpanded = null, isVisible = null, newRect = null):
 	UpdateWindowRect(tgtRect)
 	#_refreshQueued = true
 
-func ClearWindow():
+func Clear():
 	DisplayTextBox.text = ""
 	_logs.clear()
+	_UpdateTextBox()
 
 func MoveWindow(newPos: Vector2):
 	if (position.is_equal_approx(newPos)):
@@ -238,14 +242,12 @@ func AddLog(msgData: Dictionary):
 	if (msgData["formattedText"] == null):
 		msgData["formattedText"] = _FilterMessage(_FormatMessage(msgData), FilterEdit.text)
 
-	if (_logs.size() >= MAX_LOGS): # prevent memory bloat, since we keep all logs for filtering purposes
+	if (_modConfig.GetConfigValueOrDefault("enableMaxLogCount") and _logs.size() >= _maxLogCount):
 		_logs.remove_at(0)
 	
 	_logs.append(msgData)
 
 	_refreshQueued = true
-	
-	#_UpdateTextBox()
 
 func _HasResizeCooldown() -> bool:
 	return _resizeCooldownMsec - (Time.get_ticks_msec() - _lastResizeMsec) > 0
@@ -357,9 +359,18 @@ func _FilterMessage(msg: String, filterText: String) -> Variant:
 func _GetRecentLogs(count: int) -> Array[Dictionary]:
 	return _logs.slice(max(0, _logs.size() - count), _logs.size())
 
+func _ResizeLogs(count: int):
+	if (_logs.size() <= count):
+		return
+
+	_logs = _GetRecentLogs(count)
+	_UpdateTextBox()
+
 func _UpdateTextBox():
-	var mostRecentLogs = _GetRecentLogs(MAX_LOGS)
+	var mostRecentLogs = _GetRecentLogs(_maxLogCount)
 	var text = ""
+
+	_logsMatchingFilter.clear()
 
 	for msgData in mostRecentLogs:
 		if (msgData["formattedText"] == null or msgData["formattedText"] == ""):
@@ -367,9 +378,16 @@ func _UpdateTextBox():
 		
 		if (msgData["formattedText"] != null):
 			text += msgData["formattedText"]
+			_logsMatchingFilter.append(msgData)
 
 	DisplayTextBox.text = text
 
+	if (_logsMatchingFilter.size() == _logs.size()):
+		FilterMatchCount.visible = false
+	else:
+		FilterMatchCount.text = "%d/%d matching logs" % [_logsMatchingFilter.size(), _logs.size()]
+		FilterMatchCount.visible = true
+	
 func _on_mod_config_value_changed(key: String, _value: Variant):
 	const COLOR_SETTING_KEYS = [
 		"colorEntireMessage",
@@ -401,7 +419,8 @@ func _on_close_window_pressed() -> void:
 	CloseWindow()
 
 func _on_clear_text_pressed() -> void:
-	ClearWindow()
+	Clear()
+	ClearPressed.emit(self )
 
 func _on_open_logs_pressed() -> void:
 	OS.shell_open(ProjectSettings.globalize_path(String(ProjectSettings.get_setting_with_override(&"debug/file_logging/log_path")).get_base_dir()))
@@ -460,7 +479,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		if (event.button_index == MouseButton.MOUSE_BUTTON_LEFT):
 			if (event.is_pressed()):
 				_mouseDownPosition = get_global_mouse_position()
-				if (!get_global_rect().has_point(_mouseDownPosition)):
+				if ((_mouseIsDraggingWindow or _mouseIsResizingWindow) and (!get_global_rect().has_point(_mouseDownPosition))):
 					_on_mouse_btn_released() # stop dragging if we click outside the window
 			else: # only update on release
 				_on_mouse_btn_released()
