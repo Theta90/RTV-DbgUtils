@@ -30,7 +30,6 @@ const FILE_PATH := "user://MCM/DbgUtils"
 const FILE_NAME := "config.ini"
 
 const gameData := preload("res://Resources/GameData.tres")
-const MCMNotInstalledUI := preload("res://mods/DbgUtils/MCM/mcm_not_installed.tscn")
 
 var MCM
 
@@ -182,36 +181,14 @@ func _ready() -> void:
 	MCM = load(MCM_PATH)
 
 	var result = _ConnectToMCM()
-	var error: Error = result[0]
+	connectionError = result[0]
 
-	if (error == Error.OK):
+	if (connectionError == Error.OK):
 		for k in _localConfig.keys():
 			if (_localConfig[k][0] == "Category"):
 				continue
 
 			ConfigValueChanged.emit(k, _localConfig[k][2]["value"])
-	else:
-		connectionError = error
-		
-		var _notInstalledUI = MCMNotInstalledUI.instantiate()
-		_notInstalledUI.find_child("Link").pressed.connect(func():
-			OS.shell_open("https://modworkshop.net/mod/53713")
-		)
-		_notInstalledUI.find_child("Quit").pressed.connect(func():
-			Loader.Quit()
-		)
-		_notInstalledUI.find_child("Description").text = (
-			("Mod Configuration Menu must be installed to use %s. " % MOD_NAME) +
-			"The button below will take you to the MCM ModWorkshop page."
-		)
-			
-		for _element in get_parent().get_children():
-			if _element.name == "Menu":
-				_element.find_child("Main").hide()
-				_element.add_child(_notInstalledUI)
-				return
-
-	#dbg.debug("Initialization complete.")
 
 func _ConnectToMCM() -> Array: # returns [Error, ConfigFile?]
 	var result = [Error.OK, null]
