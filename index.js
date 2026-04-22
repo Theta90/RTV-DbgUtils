@@ -24,7 +24,6 @@ await modBuilder({
     modworkshopID: "56137",
   },
   options: {
-    includeVersionInName: true,
     verbose: true,
   },
 }).catch((err) => {
