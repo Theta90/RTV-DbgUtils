@@ -1,3 +1,14 @@
+Version 1.3.0
+
+- Reduced the aggressive trimming of logs when the max log count is exceeded.
+- Added options in MCM for customizing the log trimming behavior, including the ability to disable it entirely.
+- Added a label displaying the number of matches a filter has (if a filter is specified).
+- Improved general performance.
+
+Known Issues:
+
+- Currently, the filter is matched against the formatted version of a message, which can mean there are matches that should not be counted. This can include the BBCode markup inserted by DbgUtils. I will look into fixing this, but it is not a high priority at the moment.
+
 Version 1.2.2
 
 - Fixed a couple issues relating to when MCM was not installed
