@@ -20,6 +20,7 @@ func _ready() -> void:
 	dbg.settings.includeDate = true
 	dbg.info("Include timestamps and dates")
 
+	# if working within the editor
 	dbg.settings.includeFileSource = true
 	dbg.settings.includeLine = true
 	var nest1 = func someFunc():
